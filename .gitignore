@@ -1,0 +1,16 @@
+# VS / .NET build artifacts
+bin/
+obj/
+.vs/
+
+# npm / lib folders
+wwwroot/lib/
+
+# Ignore user secrets, logs, etc.
+*.user
+*.suo
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
