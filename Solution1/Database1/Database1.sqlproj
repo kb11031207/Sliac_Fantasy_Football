@@ -59,6 +59,9 @@
   <Import Condition="'$(SQLDBExtensionsRefPath)' == ''" Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
   <ItemGroup>
     <Folder Include="Properties" />
+    <Folder Include="dbo\" />
+    <Folder Include="dbo\Tables\" />
+    <Folder Include="Scripts\" />
   </ItemGroup>
   <ItemGroup>
     <Build Include="users.sql" />
@@ -66,6 +69,15 @@
     <Build Include="usersXleagues.sql" />
     <Build Include="conferenceTeams.sql" />
     <Build Include="players.sql" />
+    <Build Include="dbo\Tables\gameweeks.sql" />
+    <Build Include="dbo\Tables\squads.sql" />
+    <Build Include="dbo\Tables\squadPlayers.sql" />
+    <Build Include="dbo\Tables\fixtures.sql" />
+    <Build Include="dbo\Tables\fixtureResults.sql" />
+    <Build Include="dbo\Tables\playerFixtureStats.sql" />
+    <Build Include="dbo\Tables\playerGameweekStats.sql" />
+    <Build Include="dbo\Tables\userGameweekScores.sql" />
+    <None Include="Scripts\ScriptsIgnoredOnImport.sql" />
   </ItemGroup>
   <ItemGroup>
     <RefactorLog Include="Database1.refactorlog" />
