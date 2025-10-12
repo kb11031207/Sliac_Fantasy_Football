@@ -18,6 +18,12 @@ namespace Service_layer.DTOs
         public bool Type { get; set; } // false = private, true = public
     }
 
+    public class UpdateLeagueDto
+    {
+        [Required(ErrorMessage = "League type is required")]
+        public bool Type { get; set; } // false = private, true = public
+    }
+
     public class LeagueDetailsDto
     {
         public int Id { get; set; }

@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Service_layer.Interfaces;
 using Service_layer.DTOs;
@@ -16,13 +18,20 @@ namespace Api_Srv.Controllers
         }
 
         /// <summary>
-        /// Get user by ID
+        /// Get user by ID (requires authentication)
         /// </summary>
+        [Authorize]
         [HttpGet("{id}")]
         [ProducesResponseType(typeof(UserDto), 200)]
         [ProducesResponseType(404)]
+        [ProducesResponseType(403)]
         public async Task<IActionResult> GetUser(int id)
         {
+            // Check if user is accessing their own data
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            if (currentUserId != id)
+                return Forbid("You can only access your own user information");
+
             var user = await _userService.GetUserByIdAsync(id);
             if (user == null)
                 return NotFound($"User with ID {id} not found");
@@ -31,7 +40,7 @@ namespace Api_Srv.Controllers
         }
 
         /// <summary>
-        /// Get all users
+        /// Get all users (public endpoint for testing)
         /// </summary>
         [HttpGet]
         [ProducesResponseType(typeof(IEnumerable<UserDto>), 200)]
@@ -42,8 +51,9 @@ namespace Api_Srv.Controllers
         }
 
         /// <summary>
-        /// Register new user
+        /// Register new user (public endpoint)
         /// </summary>
+        [AllowAnonymous]
         [HttpPost("register")]
         [ProducesResponseType(typeof(UserDto), 201)]
         [ProducesResponseType(400)]
@@ -61,29 +71,63 @@ namespace Api_Srv.Controllers
         }
 
         /// <summary>
-        /// User login
+        /// User login - returns JWT tokens (public endpoint)
         /// </summary>
+        [AllowAnonymous]
         [HttpPost("login")]
-        [ProducesResponseType(typeof(UserDto), 200)]
+        [ProducesResponseType(typeof(AuthResponseDto), 200)]
         [ProducesResponseType(401)]
         public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
         {
-            var user = await _userService.AuthenticateAsync(loginDto.Email, loginDto.Password);
-            if (user == null)
-                return Unauthorized(new { error = "Invalid email or password" });
+            try
+            {
+                var authResponse = await _userService.AuthenticateWithTokensAsync(loginDto.Email, loginDto.Password);
+                if (authResponse == null)
+                    return Unauthorized(new { error = "Invalid email or password" });
 
-            return Ok(user);
+                return Ok(authResponse);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
+            }
         }
 
         /// <summary>
-        /// Update user
+        /// Refresh access token using refresh token (public endpoint)
         /// </summary>
+        [AllowAnonymous]
+        [HttpPost("refresh-token")]
+        [ProducesResponseType(typeof(RefreshTokenResponseDto), 200)]
+        [ProducesResponseType(401)]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto refreshTokenRequest)
+        {
+            var refreshResponse = await _userService.RefreshTokenAsync(
+                refreshTokenRequest.AccessToken, 
+                refreshTokenRequest.RefreshToken);
+
+            if (refreshResponse == null)
+                return Unauthorized(new { error = "Invalid or expired refresh token" });
+
+            return Ok(refreshResponse);
+        }
+
+        /// <summary>
+        /// Update user (requires authentication and user must be updating their own account)
+        /// </summary>
+        [Authorize]
         [HttpPut("{id}")]
         [ProducesResponseType(typeof(UserDto), 200)]
+        [ProducesResponseType(403)]
         [ProducesResponseType(404)]
         [ProducesResponseType(400)]
         public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserDto updateDto)
         {
+            // Check if user is updating their own account
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            if (currentUserId != id)
+                return Forbid("You can only update your own account");
+
             try
             {
                 var user = await _userService.UpdateUserAsync(id, updateDto);
@@ -100,14 +144,21 @@ namespace Api_Srv.Controllers
         }
 
         /// <summary>
-        /// Change password
+        /// Change password (requires authentication)
         /// </summary>
+        [Authorize]
         [HttpPost("{id}/change-password")]
         [ProducesResponseType(200)]
         [ProducesResponseType(400)]
+        [ProducesResponseType(403)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> ChangePassword(int id, [FromBody] ChangePasswordDto changePasswordDto)
         {
+            // Check if user is changing their own password
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            if (currentUserId != id)
+                return Forbid("You can only change your own password");
+
             try
             {
                 await _userService.ChangePasswordAsync(id, changePasswordDto.CurrentPassword, changePasswordDto.NewPassword);
@@ -124,13 +175,20 @@ namespace Api_Srv.Controllers
         }
 
         /// <summary>
-        /// Delete user
+        /// Delete user (requires authentication)
         /// </summary>
+        [Authorize]
         [HttpDelete("{id}")]
         [ProducesResponseType(204)]
+        [ProducesResponseType(403)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> DeleteUser(int id)
         {
+            // Check if user is deleting their own account
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            if (currentUserId != id)
+                return Forbid("You can only delete your own account");
+
             var result = await _userService.DeleteUserAsync(id);
             if (!result)
                 return NotFound($"User with ID {id} not found");
@@ -139,6 +197,3 @@ namespace Api_Srv.Controllers
         }
     }
 }
-
-
-

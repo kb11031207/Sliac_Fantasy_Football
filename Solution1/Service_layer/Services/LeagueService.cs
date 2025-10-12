@@ -141,6 +141,62 @@ namespace Service_layer.Services
                 Standings = new List<LeagueStandingEntry>()
             };
         }
+
+        public async Task<bool> IsUserInLeagueAsync(int userId, int leagueId)
+        {
+            return await _leagueRepository.IsUserInLeagueAsync(userId, leagueId);
+        }
+
+        public async Task<LeagueDto> UpdateLeagueAsync(int leagueId, UpdateLeagueDto updateDto)
+        {
+            // Get existing league
+            var league = await _leagueRepository.GetByIdAsync(leagueId);
+            if (league == null)
+                throw new KeyNotFoundException($"League with ID {leagueId} not found");
+
+            // Update fields
+            league.Type = updateDto.Type;
+
+            // Save changes
+            var updatedLeague = await _leagueRepository.UpdateAsync(league);
+            
+            // Map to DTO
+            var leagueDto = _mapper.Map<LeagueDto>(updatedLeague);
+            
+            // Get owner username
+            var owner = await _userRepository.GetByIdAsync(league.Owner);
+            leagueDto.OwnerUsername = owner?.Username;
+            
+            return leagueDto;
+        }
+
+        public async Task<bool> DeleteLeagueAsync(int leagueId)
+        {
+            var league = await _leagueRepository.GetByIdAsync(leagueId);
+            if (league == null)
+                return false;
+
+            return await _leagueRepository.RemoveAsync(league);
+        }
+
+        public async Task<bool> RemoveMemberAsync(int userId, int leagueId)
+        {
+            // Verify league exists
+            var league = await _leagueRepository.GetByIdAsync(leagueId);
+            if (league == null)
+                throw new KeyNotFoundException($"League with ID {leagueId} not found");
+
+            // Verify user is in the league
+            if (!await _leagueRepository.IsUserInLeagueAsync(userId, leagueId))
+                throw new ArgumentException("User is not a member of this league");
+
+            // Prevent owner from being removed
+            if (league.Owner == userId)
+                throw new ArgumentException("Cannot remove the league owner. Delete the league instead.");
+
+            // Remove user from league
+            return await _leagueRepository.RemoveUserFromLeagueAsync(userId, leagueId);
+        }
     }
 }
 

@@ -154,5 +154,63 @@ namespace Data_Layer.Repositories
             var count = await connection.ExecuteScalarAsync<int>(sql, new { Username = username });
             return count > 0;
         }
+
+        public async Task<User?> GetByRefreshTokenAsync(string refreshToken)
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            const string sql = "SELECT * FROM users WHERE RefreshToken = @RefreshToken";
+            return await connection.QueryFirstOrDefaultAsync<User>(sql, new { RefreshToken = refreshToken });
+        }
+
+        public async Task<bool> UpdateRefreshTokenAsync(int userId, string refreshToken, DateTime expiryTime)
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            const string sql = @"
+                UPDATE users 
+                SET RefreshToken = @RefreshToken,
+                    RefreshTokenExpiryTime = @ExpiryTime
+                WHERE id = @UserId";
+            
+            var rowsAffected = await connection.ExecuteAsync(sql, 
+                new { UserId = userId, RefreshToken = refreshToken, ExpiryTime = expiryTime });
+            return rowsAffected > 0;
+        }
+
+        public async Task<bool> IncrementFailedLoginAttemptsAsync(int userId)
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            const string sql = @"
+                UPDATE users 
+                SET FailedLoginAttempts = FailedLoginAttempts + 1
+                WHERE id = @UserId";
+            
+            var rowsAffected = await connection.ExecuteAsync(sql, new { UserId = userId });
+            return rowsAffected > 0;
+        }
+
+        public async Task<bool> ResetFailedLoginAttemptsAsync(int userId)
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            const string sql = @"
+                UPDATE users 
+                SET FailedLoginAttempts = 0,
+                    LockoutEnd = NULL
+                WHERE id = @UserId";
+            
+            var rowsAffected = await connection.ExecuteAsync(sql, new { UserId = userId });
+            return rowsAffected > 0;
+        }
+
+        public async Task<bool> SetLockoutEndAsync(int userId, DateTime lockoutEnd)
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            const string sql = @"
+                UPDATE users 
+                SET LockoutEnd = @LockoutEnd
+                WHERE id = @UserId";
+            
+            var rowsAffected = await connection.ExecuteAsync(sql, new { UserId = userId, LockoutEnd = lockoutEnd });
+            return rowsAffected > 0;
+        }
     }
 }

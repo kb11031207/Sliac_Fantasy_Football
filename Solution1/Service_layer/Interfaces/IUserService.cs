@@ -6,6 +6,8 @@ namespace Service_layer.Interfaces
     {
         Task<UserDto?> GetUserByIdAsync(int id);
         Task<UserDto?> AuthenticateAsync(string email, string password);
+        Task<AuthResponseDto?> AuthenticateWithTokensAsync(string email, string password);
+        Task<RefreshTokenResponseDto?> RefreshTokenAsync(string accessToken, string refreshToken);
         Task<UserDto> RegisterAsync(RegisterUserDto registerDto);
         Task<UserDto> UpdateUserAsync(int id, UpdateUserDto updateDto);
         Task<bool> DeleteUserAsync(int id);
@@ -13,6 +15,3 @@ namespace Service_layer.Interfaces
         Task<IEnumerable<UserDto>> GetAllUsersAsync();
     }
 }
-
-
-

@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using System.Security.Cryptography;
 using AutoMapper;
+using Microsoft.Extensions.Configuration;
 using Data_Layer.Interfaces;
 using Data_Layer.Models;
 using Service_layer.DTOs;
@@ -10,12 +12,23 @@ namespace Service_layer.Services
     public class UserService : IUserService
     {
         private readonly IUserRepository _userRepository;
+        private readonly ITokenService _tokenService;
         private readonly IMapper _mapper;
+        private readonly IConfiguration _configuration;
 
-        public UserService(IUserRepository userRepository, IMapper mapper)
+        private const int MaxFailedLoginAttempts = 5;
+        private const int LockoutDurationMinutes = 15;
+
+        public UserService(
+            IUserRepository userRepository, 
+            ITokenService tokenService,
+            IMapper mapper,
+            IConfiguration configuration)
         {
             _userRepository = userRepository;
+            _tokenService = tokenService;
             _mapper = mapper;
+            _configuration = configuration;
         }
 
         public async Task<UserDto?> GetUserByIdAsync(int id)
@@ -30,10 +43,146 @@ namespace Service_layer.Services
             if (user == null)
                 return null;
 
+            // Check if account is locked
+            if (user.LockoutEnd.HasValue && user.LockoutEnd.Value > DateTime.UtcNow)
+            {
+                return null; // Account is locked
+            }
+
+            // Reset lockout if expired
+            if (user.LockoutEnd.HasValue && user.LockoutEnd.Value <= DateTime.UtcNow)
+            {
+                await _userRepository.ResetFailedLoginAttemptsAsync(user.Id);
+                user.FailedLoginAttempts = 0;
+                user.LockoutEnd = null;
+            }
+
+            // Verify password
             if (!VerifyPasswordHash(password, user.PassHash, user.PassSalt))
+            {
+                // Increment failed attempts
+                await _userRepository.IncrementFailedLoginAttemptsAsync(user.Id);
+                user.FailedLoginAttempts++;
+
+                // Lock account if max attempts reached
+                if (user.FailedLoginAttempts >= MaxFailedLoginAttempts)
+                {
+                    var lockoutEnd = DateTime.UtcNow.AddMinutes(LockoutDurationMinutes);
+                    await _userRepository.SetLockoutEndAsync(user.Id, lockoutEnd);
+                }
+
                 return null;
+            }
+
+            // Successful login - reset failed attempts
+            if (user.FailedLoginAttempts > 0)
+            {
+                await _userRepository.ResetFailedLoginAttemptsAsync(user.Id);
+            }
 
             return _mapper.Map<UserDto>(user);
+        }
+
+        public async Task<AuthResponseDto?> AuthenticateWithTokensAsync(string email, string password)
+        {
+            var user = await _userRepository.GetByEmailAsync(email);
+            if (user == null)
+                return null;
+
+            // Check if account is locked
+            if (user.LockoutEnd.HasValue && user.LockoutEnd.Value > DateTime.UtcNow)
+            {
+                throw new UnauthorizedAccessException($"Account is locked until {user.LockoutEnd.Value.ToLocalTime()}. Please try again later.");
+            }
+
+            // Reset lockout if expired
+            if (user.LockoutEnd.HasValue && user.LockoutEnd.Value <= DateTime.UtcNow)
+            {
+                await _userRepository.ResetFailedLoginAttemptsAsync(user.Id);
+                user.FailedLoginAttempts = 0;
+                user.LockoutEnd = null;
+            }
+
+            // Verify password
+            if (!VerifyPasswordHash(password, user.PassHash, user.PassSalt))
+            {
+                // Increment failed attempts
+                await _userRepository.IncrementFailedLoginAttemptsAsync(user.Id);
+                user.FailedLoginAttempts++;
+
+                // Lock account if max attempts reached
+                if (user.FailedLoginAttempts >= MaxFailedLoginAttempts)
+                {
+                    var lockoutEnd = DateTime.UtcNow.AddMinutes(LockoutDurationMinutes);
+                    await _userRepository.SetLockoutEndAsync(user.Id, lockoutEnd);
+                    throw new UnauthorizedAccessException($"Account locked due to too many failed login attempts. Try again after {LockoutDurationMinutes} minutes.");
+                }
+
+                return null;
+            }
+
+            // Successful login - reset failed attempts
+            if (user.FailedLoginAttempts > 0)
+            {
+                await _userRepository.ResetFailedLoginAttemptsAsync(user.Id);
+            }
+
+            // Generate tokens
+            var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Email!, user.Username!);
+            var refreshToken = _tokenService.GenerateRefreshToken();
+            
+            var accessTokenExpiry = DateTime.UtcNow.AddMinutes(
+                Convert.ToDouble(_configuration["JwtSettings:AccessTokenExpirationMinutes"]));
+            var refreshTokenExpiry = DateTime.UtcNow.AddDays(
+                Convert.ToDouble(_configuration["JwtSettings:RefreshTokenExpirationDays"]));
+
+            // Save refresh token to database
+            await _userRepository.UpdateRefreshTokenAsync(user.Id, refreshToken, refreshTokenExpiry);
+
+            return new AuthResponseDto
+            {
+                Id = user.Id,
+                Email = user.Email!,
+                Username = user.Username!,
+                School = user.School,
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                AccessTokenExpiry = accessTokenExpiry,
+                RefreshTokenExpiry = refreshTokenExpiry
+            };
+        }
+
+        public async Task<RefreshTokenResponseDto?> RefreshTokenAsync(string accessToken, string refreshToken)
+        {
+            var principal = _tokenService.GetPrincipalFromExpiredToken(accessToken);
+            if (principal == null)
+                return null;
+
+            var userId = int.Parse(principal.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            var user = await _userRepository.GetByIdAsync(userId);
+
+            if (user == null || user.RefreshToken != refreshToken || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+                return null;
+
+            // Generate new tokens
+            var newAccessToken = _tokenService.GenerateAccessToken(user.Id, user.Email!, user.Username!);
+            var newRefreshToken = _tokenService.GenerateRefreshToken();
+            
+            var accessTokenExpiry = DateTime.UtcNow.AddMinutes(
+                Convert.ToDouble(_configuration["JwtSettings:AccessTokenExpirationMinutes"]));
+            var refreshTokenExpiry = DateTime.UtcNow.AddDays(
+                Convert.ToDouble(_configuration["JwtSettings:RefreshTokenExpirationDays"]));
+
+            // Update refresh token in database
+            await _userRepository.UpdateRefreshTokenAsync(user.Id, newRefreshToken, refreshTokenExpiry);
+
+            return new RefreshTokenResponseDto
+            {
+                AccessToken = newAccessToken,
+                RefreshToken = newRefreshToken,
+                AccessTokenExpiry = accessTokenExpiry,
+                RefreshTokenExpiry = refreshTokenExpiry
+            };
         }
 
         public async Task<UserDto> RegisterAsync(RegisterUserDto registerDto)
@@ -147,4 +296,3 @@ namespace Service_layer.Services
         }
     }
 }
-

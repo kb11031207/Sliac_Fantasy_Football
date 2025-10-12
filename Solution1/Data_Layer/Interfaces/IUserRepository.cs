@@ -9,8 +9,10 @@ namespace Data_Layer.Interfaces
         Task<User?> GetUserWithSquadsAsync(int userId);
         Task<bool> EmailExistsAsync(string email);
         Task<bool> UsernameExistsAsync(string username);
+        Task<User?> GetByRefreshTokenAsync(string refreshToken);
+        Task<bool> UpdateRefreshTokenAsync(int userId, string refreshToken, DateTime expiryTime);
+        Task<bool> IncrementFailedLoginAttemptsAsync(int userId);
+        Task<bool> ResetFailedLoginAttemptsAsync(int userId);
+        Task<bool> SetLockoutEndAsync(int userId, DateTime lockoutEnd);
     }
 }
-
-
-

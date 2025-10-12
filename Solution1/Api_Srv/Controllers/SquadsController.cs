@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Service_layer.Interfaces;
 using Service_layer.DTOs;
@@ -16,7 +18,7 @@ namespace Api_Srv.Controllers
         }
 
         /// <summary>
-        /// Get squad by ID
+        /// Get squad by ID (public - anyone can view squads)
         /// </summary>
         [HttpGet("{id}")]
         [ProducesResponseType(typeof(SquadDto), 200)]
@@ -31,7 +33,7 @@ namespace Api_Srv.Controllers
         }
 
         /// <summary>
-        /// Get user's squads
+        /// Get user's squads (public - anyone can view)
         /// </summary>
         [HttpGet("user/{userId}")]
         [ProducesResponseType(typeof(IEnumerable<SquadDto>), 200)]
@@ -42,7 +44,7 @@ namespace Api_Srv.Controllers
         }
 
         /// <summary>
-        /// Get user's squad for specific gameweek
+        /// Get user's squad for specific gameweek (public - anyone can view)
         /// </summary>
         [HttpGet("user/{userId}/gameweek/{gameweekId}")]
         [ProducesResponseType(typeof(SquadDto), 200)]
@@ -57,13 +59,20 @@ namespace Api_Srv.Controllers
         }
 
         /// <summary>
-        /// Create new squad
+        /// Create new squad (requires authentication - user must be creating their own squad)
         /// </summary>
+        [Authorize]
         [HttpPost("user/{userId}")]
         [ProducesResponseType(typeof(SquadDto), 201)]
         [ProducesResponseType(400)]
+        [ProducesResponseType(403)]
         public async Task<IActionResult> CreateSquad(int userId, [FromBody] CreateSquadDto createDto)
         {
+            // Check if authenticated user is creating their own squad
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            if (currentUserId != userId)
+                return Forbid("You can only create squads for your own account");
+
             try
             {
                 var squad = await _squadService.CreateSquadAsync(userId, createDto);
@@ -76,14 +85,26 @@ namespace Api_Srv.Controllers
         }
 
         /// <summary>
-        /// Update existing squad
+        /// Update existing squad (requires authentication - only squad owner can update)
         /// </summary>
+        [Authorize]
         [HttpPut("{id}")]
         [ProducesResponseType(typeof(SquadDto), 200)]
         [ProducesResponseType(400)]
+        [ProducesResponseType(403)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> UpdateSquad(int id, [FromBody] UpdateSquadDto updateDto)
         {
+            // Get squad to check ownership
+            var existingSquad = await _squadService.GetSquadByIdAsync(id);
+            if (existingSquad == null)
+                return NotFound($"Squad with ID {id} not found");
+
+            // Check if authenticated user owns the squad
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            if (existingSquad.UserId != currentUserId)
+                return Forbid("You can only update your own squads");
+
             try
             {
                 var squad = await _squadService.UpdateSquadAsync(id, updateDto);
@@ -100,13 +121,25 @@ namespace Api_Srv.Controllers
         }
 
         /// <summary>
-        /// Delete squad
+        /// Delete squad (requires authentication - only squad owner can delete)
         /// </summary>
+        [Authorize]
         [HttpDelete("{id}")]
         [ProducesResponseType(204)]
+        [ProducesResponseType(403)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> DeleteSquad(int id)
         {
+            // Get squad to check ownership
+            var existingSquad = await _squadService.GetSquadByIdAsync(id);
+            if (existingSquad == null)
+                return NotFound($"Squad with ID {id} not found");
+
+            // Check if authenticated user owns the squad
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            if (existingSquad.UserId != currentUserId)
+                return Forbid("You can only delete your own squads");
+
             var result = await _squadService.DeleteSquadAsync(id);
             if (!result)
                 return NotFound($"Squad with ID {id} not found");
@@ -115,6 +148,3 @@ namespace Api_Srv.Controllers
         }
     }
 }
-
-
-
