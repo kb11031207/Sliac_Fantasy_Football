@@ -1,0 +1,18 @@
+﻿--maybe 
+
+CREATE TABLE playerFixtureStats (
+    PlayerId INT NOT NULL,
+    FixtureId INT NOT NULL,
+    MinutesPlayed TINYINT NOT NULL DEFAULT 0,
+    Goals TINYINT NOT NULL DEFAULT 0,
+    Assists TINYINT NOT NULL DEFAULT 0,
+    YellowCards TINYINT NOT NULL DEFAULT 0,
+    RedCards TINYINT NOT NULL DEFAULT 0,
+    CleanSheet BIT NOT NULL DEFAULT 0,
+    GoalsConceded TINYINT NOT NULL DEFAULT 0,
+    OwnGoals TINYINT NOT NULL DEFAULT 0,
+    Saves TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (PlayerId, FixtureId),
+    CONSTRAINT FK_PFS_Player FOREIGN KEY (PlayerId) REFERENCES Players(Id),
+    CONSTRAINT FK_PFS_Fixture FOREIGN KEY (FixtureId) REFERENCES Fixtures(Id)
+);
