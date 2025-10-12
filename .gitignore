@@ -14,3 +14,7 @@ wwwroot/lib/
 # OS-specific
 .DS_Store
 Thumbs.db
+
+# Scraper folders
+SliacScraper/
+Solution1/SliacScraper/

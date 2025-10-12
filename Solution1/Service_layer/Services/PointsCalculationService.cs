@@ -1,12 +1,14 @@
+using System.Data;
+using Dapper;
 using Data_Layer;
-using Microsoft.EntityFrameworkCore;
+using Data_Layer.Interfaces;
 using Service_layer.Interfaces;
 
 namespace Service_layer.Services
 {
     public class PointsCalculationService : IPointsCalculationService
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IDbConnectionFactory _connectionFactory;
 
         // SLIAC Scoring rules
         private const int FORWARD_GOAL_POINTS = 5;
@@ -22,54 +24,66 @@ namespace Service_layer.Services
         private const int GK_SAVES_BONUS_POINTS = 1;
         private const int GOAL_CONCEDED_POINTS = -1;
 
-        public PointsCalculationService(ApplicationDbContext context)
+        public PointsCalculationService(IDbConnectionFactory connectionFactory)
         {
-            _context = context;
+            _connectionFactory = connectionFactory;
         }
 
         public async Task<int> CalculatePlayerFixturePointsAsync(int playerId, int fixtureId)
         {
-            var stats = await _context.PlayerFixtureStats
-                .Include(pfs => pfs.Player)
-                .FirstOrDefaultAsync(pfs => pfs.PlayerId == playerId && pfs.FixtureId == fixtureId);
+            using var connection = _connectionFactory.CreateConnection();
+            
+            const string sql = @"
+                SELECT 
+                    pfs.PlayerId, pfs.FixtureId, pfs.MinutesPlayed, pfs.Goals, pfs.Assists,
+                    pfs.YellowCards, pfs.RedCards, pfs.CleanSheet, pfs.GoalsConceded,
+                    pfs.OwnGoals, pfs.Saves,
+                    p.id, p.position, p.name, p.playerNum, p.teamId, p.cost, p.pictureUrl
+                FROM playerFixtureStats pfs
+                INNER JOIN players p ON pfs.PlayerId = p.id
+                WHERE pfs.PlayerId = @PlayerId AND pfs.FixtureId = @FixtureId";
 
-            if (stats == null) return 0;
+            var stats = await connection.QueryAsync<dynamic>(sql, 
+                new { PlayerId = playerId, FixtureId = fixtureId });
+
+            var stat = stats.FirstOrDefault();
+            if (stat == null) return 0;
 
             var points = 0;
 
             // Goals scored (position-dependent)
-            if (stats.Goals > 0)
+            if (stat.Goals > 0)
             {
-                points += stats.Goals * GetGoalPoints(stats.Player.Position);
+                points += stat.Goals * GetGoalPoints((byte)stat.position);
             }
 
             // Assists
-            points += stats.Assists * ASSIST_POINTS;
+            points += stat.Assists * ASSIST_POINTS;
 
             // Playing time
-            if (stats.MinutesPlayed >= 90)
+            if (stat.MinutesPlayed >= 90)
                 points += FULL_MATCH_POINTS;
-            else if (stats.MinutesPlayed > 45)
+            else if (stat.MinutesPlayed > 45)
                 points += PARTIAL_MATCH_POINTS;
 
             // Cards
-            points += stats.YellowCards * YELLOW_CARD_POINTS;
-            points += stats.RedCards * RED_CARD_POINTS;
+            points += stat.YellowCards * YELLOW_CARD_POINTS;
+            points += stat.RedCards * RED_CARD_POINTS;
 
             // Defender/GK specific points
-            if (stats.Player.Position == 1 || stats.Player.Position == 2) // GK or DEF
+            if (stat.position == 1 || stat.position == 2) // GK or DEF
             {
                 // Clean sheet (must play at least 60 minutes)
-                if (stats.CleanSheet && stats.MinutesPlayed >= 60)
+                if (stat.CleanSheet && stat.MinutesPlayed >= 60)
                     points += CLEAN_SHEET_POINTS;
 
                 // Goals conceded
-                points += stats.GoalsConceded * GOAL_CONCEDED_POINTS;
+                points += stat.GoalsConceded * GOAL_CONCEDED_POINTS;
 
                 // GK saves bonus
-                if (stats.Player.Position == 1 && stats.Saves >= GK_SAVES_BONUS_THRESHOLD)
+                if (stat.position == 1 && stat.Saves >= GK_SAVES_BONUS_THRESHOLD)
                 {
-                    points += (stats.Saves / GK_SAVES_BONUS_THRESHOLD) * GK_SAVES_BONUS_POINTS;
+                    points += (stat.Saves / GK_SAVES_BONUS_THRESHOLD) * GK_SAVES_BONUS_POINTS;
                 }
             }
 
@@ -78,14 +92,18 @@ namespace Service_layer.Services
 
         public async Task<int> CalculatePlayerGameweekPointsAsync(int playerId, int gameweekId)
         {
-            // Get all fixtures in the gameweek for this player
-            var fixtures = await _context.Fixtures
-                .Where(f => f.GameweekId == gameweekId)
-                .Select(f => f.Id)
-                .ToListAsync();
+            using var connection = _connectionFactory.CreateConnection();
+            
+            // Get all fixtures in the gameweek
+            const string sql = @"
+                SELECT Id 
+                FROM fixtures 
+                WHERE GameweekId = @GameweekId";
+            
+            var fixtureIds = await connection.QueryAsync<int>(sql, new { GameweekId = gameweekId });
 
             var totalPoints = 0;
-            foreach (var fixtureId in fixtures)
+            foreach (var fixtureId in fixtureIds)
             {
                 totalPoints += await CalculatePlayerFixturePointsAsync(playerId, fixtureId);
             }
@@ -95,26 +113,31 @@ namespace Service_layer.Services
 
         public async Task<int> CalculateSquadGameweekPointsAsync(int squadId)
         {
-            var squad = await _context.Squads
-                .Include(s => s.SquadPlayers)
-                    .ThenInclude(sp => sp.Player)
-                .FirstOrDefaultAsync(s => s.Id == squadId);
+            using var connection = _connectionFactory.CreateConnection();
+            
+            const string sql = @"
+                SELECT 
+                    s.id, s.userId, s.gameweekId,
+                    sp.id, sp.squadId, sp.playerId, sp.isStarter, sp.isCaptain
+                FROM squads s
+                INNER JOIN squadPlayers sp ON s.id = sp.squadId
+                WHERE s.id = @SquadId AND sp.isStarter = 1";
 
-            if (squad == null) return 0;
+            var squadData = await connection.QueryAsync<dynamic>(sql, new { SquadId = squadId });
+            
+            if (!squadData.Any()) return 0;
 
+            var gameweekId = squadData.First().gameweekId;
             var totalPoints = 0;
 
-            // Get starters only (11 players)
-            var starters = squad.SquadPlayers.Where(sp => sp.IsStarter).ToList();
-
-            foreach (var squadPlayer in starters)
+            foreach (var squadPlayer in squadData)
             {
                 var playerPoints = await CalculatePlayerGameweekPointsAsync(
-                    squadPlayer.PlayerId, 
-                    squad.GameweekId);
+                    squadPlayer.playerId, 
+                    gameweekId);
 
                 // Captain gets double points
-                if (squadPlayer.IsCaptain)
+                if (squadPlayer.isCaptain)
                     playerPoints *= 2;
 
                 totalPoints += playerPoints;
@@ -136,4 +159,3 @@ namespace Service_layer.Services
         }
     }
 }
-

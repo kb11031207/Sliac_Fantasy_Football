@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Data_Layer;
 using Data_Layer.Interfaces;
 using Data_Layer.Repositories;
@@ -21,15 +20,13 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// Database Configuration
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+// Database Configuration - Dapper Connection Factory
+builder.Services.AddSingleton<IDbConnectionFactory, SqlConnectionFactory>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(MappingProfile));
 
 // Repository Registration
-builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ILeagueRepository, LeagueRepository>();
 builder.Services.AddScoped<IPlayerRepository, PlayerRepository>();
@@ -74,20 +71,5 @@ app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 app.UseAuthorization();
 app.MapControllers();
-
-// Apply migrations on startup (optional - comment out in production)
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    try
-    {
-        dbContext.Database.Migrate();
-    }
-    catch (Exception ex)
-    {
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while migrating the database.");
-    }
-}
 
 app.Run();

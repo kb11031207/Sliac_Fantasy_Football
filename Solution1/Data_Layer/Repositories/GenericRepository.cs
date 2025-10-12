@@ -1,60 +1,64 @@
-using Microsoft.EntityFrameworkCore;
+using System.Data;
 using System.Linq.Expressions;
+using Dapper;
 using Data_Layer.Interfaces;
 
 namespace Data_Layer.Repositories
 {
     public class GenericRepository<T> : IGenericRepository<T> where T : class
     {
-        protected readonly ApplicationDbContext _context;
-        protected readonly DbSet<T> _dbSet;
+        protected readonly IDbConnectionFactory _connectionFactory;
+        protected readonly string _tableName;
 
-        public GenericRepository(ApplicationDbContext context)
+        public GenericRepository(IDbConnectionFactory connectionFactory, string tableName)
         {
-            _context = context;
-            _dbSet = context.Set<T>();
+            _connectionFactory = connectionFactory;
+            _tableName = tableName;
         }
 
         public virtual async Task<T?> GetByIdAsync(int id)
         {
-            return await _dbSet.FindAsync(id);
+            using var connection = _connectionFactory.CreateConnection();
+            var sql = $"SELECT * FROM {_tableName} WHERE Id = @Id";
+            return await connection.QueryFirstOrDefaultAsync<T>(sql, new { Id = id });
         }
 
         public virtual async Task<IEnumerable<T>> GetAllAsync()
         {
-            return await _dbSet.ToListAsync();
+            using var connection = _connectionFactory.CreateConnection();
+            var sql = $"SELECT * FROM {_tableName}";
+            return await connection.QueryAsync<T>(sql);
         }
 
         public virtual async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate)
         {
-            return await _dbSet.Where(predicate).ToListAsync();
+            // Dapper doesn't support LINQ expressions directly
+            // Override in derived repositories with specific SQL queries
+            throw new NotImplementedException("Override this method in derived repository with specific SQL query");
         }
 
         public virtual async Task<T> AddAsync(T entity)
         {
-            await _dbSet.AddAsync(entity);
-            await _context.SaveChangesAsync();
-            return entity;
+            // Must be overridden in derived repositories with specific INSERT SQL
+            throw new NotImplementedException("Override this method in derived repository with specific INSERT query");
         }
 
         public virtual async Task<T> UpdateAsync(T entity)
         {
-            _dbSet.Update(entity);
-            await _context.SaveChangesAsync();
-            return entity;
+            // Must be overridden in derived repositories with specific UPDATE SQL
+            throw new NotImplementedException("Override this method in derived repository with specific UPDATE query");
         }
 
         public virtual async Task<bool> RemoveAsync(T entity)
         {
-            _dbSet.Remove(entity);
-            var result = await _context.SaveChangesAsync();
-            return result > 0;
+            // Must be overridden in derived repositories with specific DELETE SQL
+            throw new NotImplementedException("Override this method in derived repository with specific DELETE query");
         }
 
         public virtual async Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate)
         {
-            return await _dbSet.AnyAsync(predicate);
+            // Must be overridden in derived repositories with specific EXISTS SQL
+            throw new NotImplementedException("Override this method in derived repository with specific EXISTS query");
         }
     }
 }
-
