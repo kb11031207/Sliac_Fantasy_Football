@@ -1,0 +1,6 @@
+@Api_Srv_HostAddress = http://localhost:5237
+
+GET {{Api_Srv_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
