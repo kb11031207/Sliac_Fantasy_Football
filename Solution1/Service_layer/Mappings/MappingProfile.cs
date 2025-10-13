@@ -37,6 +37,10 @@ namespace Service_layer.Mappings
                 .ForMember(dest => dest.PlayerName, opt => opt.MapFrom(src => src.Player.Name))
                 .ForMember(dest => dest.Position, opt => opt.MapFrom(src => src.Player.Position))
                 .ForMember(dest => dest.TeamName, opt => opt.MapFrom(src => src.Player.Team.Team))
+                .ForMember(dest => dest.IsStarter, opt => opt.MapFrom(src => src.IsStarter))
+                .ForMember(dest => dest.IsCaptain, opt => opt.MapFrom(src => src.IsCaptain))
+                .ForMember(dest => dest.IsVice, opt => opt.MapFrom(src => src.IsVice))
+                .ForMember(dest => dest.PlayerCost, opt => opt.MapFrom(src => src.PlayerCost))
                 .ForMember(dest => dest.Points, opt => opt.Ignore());
 
             // Gameweek mappings
@@ -69,6 +73,7 @@ namespace Service_layer.Mappings
         }
     }
 }
+
 
 
 

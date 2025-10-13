@@ -132,17 +132,24 @@ namespace Data_Layer.Repositories
             return count > 0;
         }
 
-        public async Task<bool> AddPlayerToSquadAsync(int squadId, int playerId, decimal playerCost)
+        public async Task<bool> AddPlayerToSquadAsync(int squadId, int playerId, decimal playerCost, bool isStarter, bool isCaptain, bool isVice)
         {
             using var connection = _connectionFactory.CreateConnection();
             const string sql = @"
                 INSERT INTO squadPlayers (squadId, playerId, playerCost, isStarter, isCaptain, isVice)
-                VALUES (@SquadId, @PlayerId, @PlayerCost, 1, 0, 0)";
+                VALUES (@SquadId, @PlayerId, @PlayerCost, @IsStarter, @IsCaptain, @IsVice)";
             
             try
             {
                 var rowsAffected = await connection.ExecuteAsync(sql, 
-                    new { SquadId = squadId, PlayerId = playerId, PlayerCost = playerCost });
+                    new { 
+                        SquadId = squadId, 
+                        PlayerId = playerId, 
+                        PlayerCost = playerCost,
+                        IsStarter = isStarter,
+                        IsCaptain = isCaptain,
+                        IsVice = isVice
+                    });
                 return rowsAffected > 0;
             }
             catch
@@ -150,7 +157,6 @@ namespace Data_Layer.Repositories
                 return false;
             }
         }
-
         public async Task<bool> RemovePlayerFromSquadAsync(int squadId, int playerId)
         {
             using var connection = _connectionFactory.CreateConnection();

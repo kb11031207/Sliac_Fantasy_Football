@@ -74,6 +74,30 @@ namespace Service_layer.Services
             // Validate squad composition and budget
             await ValidateSquadAsync(createDto.PlayerIds);
 
+            // Validate starters are subset of players
+            if (!createDto.StarterIds.All(id => createDto.PlayerIds.Contains(id)))
+                throw new ArgumentException("All starters must be from the selected players");
+
+            // Validate captain and vice-captain are valid players
+            if (!createDto.PlayerIds.Contains(createDto.CaptainId))
+                throw new ArgumentException("Captain must be one of the selected players");
+
+            if (!createDto.PlayerIds.Contains(createDto.ViceCaptainId))
+                throw new ArgumentException("Vice-captain must be one of the selected players");
+
+            // Validate captain and vice-captain are starters
+            if (!createDto.StarterIds.Contains(createDto.CaptainId))
+                throw new ArgumentException("Captain must be a starter");
+
+            if (!createDto.StarterIds.Contains(createDto.ViceCaptainId))
+                throw new ArgumentException("Vice-captain must be a starter");
+
+            if (createDto.CaptainId == createDto.ViceCaptainId)
+                throw new ArgumentException("Captain and vice-captain must be different players");
+
+            // Validate starter formation (must have valid formation)
+            await ValidateStarterFormationAsync(createDto.StarterIds);
+
             // Get players to capture their costs
             var players = await _playerRepository.GetByIdsAsync(createDto.PlayerIds);
             var playersList = players.ToList();
@@ -89,11 +113,23 @@ namespace Service_layer.Services
 
             var createdSquad = await _squadRepository.AddAsync(squad);
 
-            // Add players to squad
+            // Add players to squad with correct flags
             foreach (var playerId in createDto.PlayerIds)
             {
                 var player = playersList.First(p => p.Id == playerId);
-                await _squadRepository.AddPlayerToSquadAsync(createdSquad.Id, playerId, player.Cost);
+                
+                bool isStarter = createDto.StarterIds.Contains(playerId);
+                bool isCaptain = playerId == createDto.CaptainId;
+                bool isVice = playerId == createDto.ViceCaptainId;
+                
+                await _squadRepository.AddPlayerToSquadAsync(
+                    createdSquad.Id, 
+                    playerId, 
+                    player.Cost,
+                    isStarter,
+                    isCaptain,
+                    isVice
+                );
             }
 
             // Reload squad with players
@@ -103,7 +139,6 @@ namespace Service_layer.Services
 
             return squadDto;
         }
-
         public async Task<SquadDto> UpdateSquadAsync(int squadId, UpdateSquadDto updateDto)
         {
             var squad = await _squadRepository.GetSquadWithPlayersAsync(squadId);
@@ -118,6 +153,30 @@ namespace Service_layer.Services
             // Validate new squad composition
             await ValidateSquadAsync(updateDto.PlayerIds);
 
+            // Validate starters are subset of players
+            if (!updateDto.StarterIds.All(id => updateDto.PlayerIds.Contains(id)))
+                throw new ArgumentException("All starters must be from the selected players");
+
+            // Validate captain and vice-captain are valid players
+            if (!updateDto.PlayerIds.Contains(updateDto.CaptainId))
+                throw new ArgumentException("Captain must be one of the selected players");
+
+            if (!updateDto.PlayerIds.Contains(updateDto.ViceCaptainId))
+                throw new ArgumentException("Vice-captain must be one of the selected players");
+
+            // Validate captain and vice-captain are starters
+            if (!updateDto.StarterIds.Contains(updateDto.CaptainId))
+                throw new ArgumentException("Captain must be a starter");
+
+            if (!updateDto.StarterIds.Contains(updateDto.ViceCaptainId))
+                throw new ArgumentException("Vice-captain must be a starter");
+
+            if (updateDto.CaptainId == updateDto.ViceCaptainId)
+                throw new ArgumentException("Captain and vice-captain must be different players");
+
+            // Validate starter formation
+            await ValidateStarterFormationAsync(updateDto.StarterIds);
+
             // Remove all existing players
             foreach (var squadPlayer in squad.SquadPlayers.ToList())
             {
@@ -131,7 +190,19 @@ namespace Service_layer.Services
             foreach (var playerId in updateDto.PlayerIds)
             {
                 var player = playersList.First(p => p.Id == playerId);
-                await _squadRepository.AddPlayerToSquadAsync(squadId, playerId, player.Cost);
+                
+                bool isStarter = updateDto.StarterIds.Contains(playerId);
+                bool isCaptain = playerId == updateDto.CaptainId;
+                bool isVice = playerId == updateDto.ViceCaptainId;
+                
+                await _squadRepository.AddPlayerToSquadAsync(
+                    squadId, 
+                    playerId, 
+                    player.Cost,
+                    isStarter,
+                    isCaptain,
+                    isVice
+                );
             }
 
             // Update timestamp
@@ -207,8 +278,50 @@ namespace Service_layer.Services
                     throw new ArgumentException($"Cannot have more than {MAX_PLAYERS_PER_TEAM} players from the same team");
             }
         }
+        private async Task ValidateStarterFormationAsync(List<int> starterIds)
+        {
+            if (starterIds.Count != 11)
+                throw new ArgumentException("Must have exactly 11 starters");
+
+            var starters = await _playerRepository.GetByIdsAsync(starterIds);
+            var startersList = starters.ToList();
+
+            if (startersList.Count != starterIds.Count)
+                throw new ArgumentException("One or more starter players not found");
+
+            // Count positions in starting 11
+            var positionCounts = startersList.GroupBy(p => p.Position)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            var goalkeepers = positionCounts.GetValueOrDefault((byte)1, 0);
+            var defenders = positionCounts.GetValueOrDefault((byte)2, 0);
+            var midfielders = positionCounts.GetValueOrDefault((byte)3, 0);
+            var forwards = positionCounts.GetValueOrDefault((byte)4, 0);
+
+            // Must have exactly 1 goalkeeper
+            if (goalkeepers != 1)
+                throw new ArgumentException("Starting 11 must have exactly 1 goalkeeper");
+
+            // Must have at least 3 defenders
+            if (defenders < 3)
+                throw new ArgumentException("Starting 11 must have at least 3 defenders");
+
+            // Must have at least 2 midfielders
+            if (midfielders < 2)
+                throw new ArgumentException("Starting 11 must have at least 2 midfielders");
+
+            // Must have at least 1 forward
+            if (forwards < 1)
+                throw new ArgumentException("Starting 11 must have at least 1 forward");
+
+            // Valid formations: 1-3-4-3, 1-3-5-2, 1-4-3-3, 1-4-4-2, 1-4-5-1, 1-5-3-2, 1-5-4-1
+            var outfieldTotal = defenders + midfielders + forwards;
+            if (outfieldTotal != 10)
+                throw new ArgumentException("Starting 11 must have 1 goalkeeper and 10 outfield players");
+        }
     }
 }
+
 
 
 

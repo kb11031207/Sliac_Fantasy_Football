@@ -24,8 +24,16 @@ namespace Service_layer.DTOs
         [MaxLength(15, ErrorMessage = "Squad must have exactly 15 players")]
         public List<int> PlayerIds { get; set; } = new List<int>();
 
-        public int? CaptainId { get; set; }
-        public int? ViceCaptainId { get; set; }
+        [Required(ErrorMessage = "Starters are required")]
+        [MinLength(11, ErrorMessage = "Squad must have exactly 11 starters")]
+        [MaxLength(11, ErrorMessage = "Squad must have exactly 11 starters")]
+        public List<int> StarterIds { get; set; } = new List<int>();
+
+        [Required(ErrorMessage = "Captain is required")]
+        public int CaptainId { get; set; }
+
+        [Required(ErrorMessage = "Vice-captain is required")]
+        public int ViceCaptainId { get; set; }
     }
 
     public class UpdateSquadDto
@@ -35,8 +43,16 @@ namespace Service_layer.DTOs
         [MaxLength(15, ErrorMessage = "Squad must have exactly 15 players")]
         public List<int> PlayerIds { get; set; } = new List<int>();
 
-        public int? CaptainId { get; set; }
-        public int? ViceCaptainId { get; set; }
+        [Required(ErrorMessage = "Starters are required")]
+        [MinLength(11, ErrorMessage = "Squad must have exactly 11 starters")]
+        [MaxLength(11, ErrorMessage = "Squad must have exactly 11 starters")]
+        public List<int> StarterIds { get; set; } = new List<int>();
+
+        [Required(ErrorMessage = "Captain is required")]
+        public int CaptainId { get; set; }
+
+        [Required(ErrorMessage = "Vice-captain is required")]
+        public int ViceCaptainId { get; set; }
     }
 
     public class SquadPlayerDto
@@ -52,6 +68,3 @@ namespace Service_layer.DTOs
         public int? Points { get; set; }
     }
 }
-
-
-
