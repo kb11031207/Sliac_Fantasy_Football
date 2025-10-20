@@ -7,6 +7,7 @@ namespace Data_Layer.Models
         public int HomeTeamId { get; set; }
         public int AwayTeamId { get; set; }
         public DateTime Kickoff { get; set; }
+        public string? BoxScoreUrl { get; set; }
         
         // Navigation properties
         public virtual Gameweek Gameweek { get; set; } = null!;

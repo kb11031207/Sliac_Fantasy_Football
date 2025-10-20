@@ -1,13 +1,16 @@
-﻿CREATE TABLE [dbo].[users]
-(
-	[id] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, 
-    [email] NVARCHAR(256) NULL, 
-    [username] NCHAR(64) NULL, 
-    [school] NCHAR(100) NULL,
-    [passHash] varbinary(64) NOT NULL,
-    [passSalt] varbinary(16) NOT NULL,
-    --add a unique constraint on email and username
-    CONSTRAINT [UQ_users_email] UNIQUE ([email]),
-    CONSTRAINT [UQ_users_username] UNIQUE ([username])
-    --index on email and username for faster lookups
-)
+﻿CREATE TABLE [dbo].[users] (
+    [id]                     INT            IDENTITY (1, 1) NOT NULL,
+    [email]                  NVARCHAR (256) NULL,
+    [username]               NCHAR (64)     NULL,
+    [school]                 NCHAR (100)    NULL,
+    [passHash]               VARBINARY (64) NOT NULL,
+    [passSalt]               VARBINARY (16) NOT NULL,
+    [FailedLoginAttempts]    INT            DEFAULT ((0)) NOT NULL,
+    [LockoutEnd]             DATETIME       NULL,
+    [RefreshToken]           NVARCHAR (256) NULL,
+    [RefreshTokenExpiryTime] DATETIME       NULL,
+    PRIMARY KEY CLUSTERED ([id] ASC),
+    CONSTRAINT [UQ_users_email] UNIQUE NONCLUSTERED ([email] ASC),
+    CONSTRAINT [UQ_users_username] UNIQUE NONCLUSTERED ([username] ASC)
+);
+

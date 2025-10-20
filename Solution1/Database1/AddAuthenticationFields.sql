@@ -31,3 +31,10 @@ PRINT 'Authentication fields added successfully to users table';
 
 
 
+
+
+
+
+
+
+

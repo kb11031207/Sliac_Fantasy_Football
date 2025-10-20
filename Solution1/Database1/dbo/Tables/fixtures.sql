@@ -4,6 +4,7 @@
     HomeTeamId INT NOT NULL,
     AwayTeamId INT NOT NULL,
     Kickoff DATETIME NOT NULL,
+    BoxScoreUrl NVARCHAR(512) NULL,
     CONSTRAINT FK_Fixtures_Gameweek FOREIGN KEY (GameweekId) REFERENCES Gameweeks(Id),
     CONSTRAINT FK_Fixtures_HomeTeam FOREIGN KEY (HomeTeamId) REFERENCES ConferenceTeams(Id),
     CONSTRAINT FK_Fixtures_AwayTeam FOREIGN KEY (AwayTeamId) REFERENCES ConferenceTeams(Id)

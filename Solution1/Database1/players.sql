@@ -2,7 +2,7 @@
 (
 	[Id] INT  IDENTITY(1,1) NOT NULL PRIMARY KEY, 
     [position] TINYINT NOT NULL, 
-    [name] NCHAR(10) NOT NULL, 
+    [name] NVARCHAR(100) NOT NULL, 
     --player num
     [playerNum] TINYINT NOT NULL,
     [teamId] INT NOT NULL, 
