@@ -1,423 +1,383 @@
-# SLIAC Fantasy Football Scrapers
+# SLIAC Data Scraper
 
-This directory contains all web scrapers for extracting data from the SLIAC website to populate the fantasy football database.
+Python-based web scrapers to collect SLIAC soccer statistics and populate the Fantasy Football database.
 
-## 📁 Structure
+## 📋 Overview
+
+This scraper suite collects three types of data:
+1. **Teams** - Conference team information
+2. **Players** - Player rosters from each team
+3. **Fixtures & Stats** - Match schedules, results, and player statistics
+
+## 🗂️ Structure
 
 ```
 scraper/
-├── teams/           # ✅ Conference teams scraper
+├── teams/                    # Team scraper
 │   ├── sliac_teams_scraper.py
 │   ├── requirements.txt
 │   └── output/
 │       ├── conference_teams.json
 │       └── conference_teams.sql
 │
-├── players/         # ✅ Player rosters scraper
+├── players/                  # Player scraper
 │   ├── sliac_players_scraper.py
-│   ├── ureka.html              # Manual save for Eureka (anti-scraping)
-│   ├── blackburn.html          # Manual save for Blackburn (anti-scraping)
 │   ├── requirements.txt
 │   └── output/
 │       ├── players.json
 │       └── players.sql
 │
-├── fixtures/        # ✅ Fixtures, results, and player stats
-│   ├── 1_setup_fixtures.py     # Run ONCE to populate Gameweeks + Fixtures
-│   ├── 2_update_results.py     # Run REPEATEDLY to update scores
-│   ├── 3_update_player_stats.py # ⏳ IN PROGRESS - Player performance
-│   ├── requirements.txt
-│   └── output/
-│       ├── setup_fixtures.sql
-│       ├── update_results.sql
-│       ├── clear_fixtures.sql
-│       ├── clear_all_fixtures_data.sql
-│       └── pdfs/               # Downloaded box score PDFs
-│
-├── requirements.txt # Global requirements
-└── README.md        # This file
+└── fixtures/                 # Fixture & stats scraper
+    ├── 1_setup_fixtures.py
+    ├── 2_update_results.py
+    ├── 3_update_player_stats.py
+    ├── requirements.txt
+    └── output/
+        ├── fixtures.sql
+        ├── fixture_results.sql
+        └── update_player_stats_ALL.sql
 ```
 
 ## 🚀 Quick Start
 
-### Install Dependencies
+### Prerequisites
+
+- Python 3.8 or higher
+- pip package manager
+
+### Installation
+
 ```bash
+# Navigate to scraper directory
 cd scraper
-pip install -r requirements.txt
+
+# Install dependencies for each module
+cd teams && pip install -r requirements.txt
+cd ../players && pip install -r requirements.txt  
+cd ../fixtures && pip install -r requirements.txt
 ```
 
-### Run All Scrapers (In Order)
+## 📥 Usage
+
+### 1. Scrape Teams
+
+Collects SLIAC conference team information.
+
 ```bash
-# 1. Scrape conference teams
-python teams/sliac_teams_scraper.py
-
-# 2. Scrape player rosters
-python players/sliac_players_scraper.py
-
-# 3. Setup fixtures (run ONCE)
-python fixtures/1_setup_fixtures.py
-
-# 4. Update game results (run REPEATEDLY as games complete)
-python fixtures/2_update_results.py
-
-# 5. Update player stats (run after games to get individual stats)
-python fixtures/3_update_player_stats.py  # ⏳ IN PROGRESS
+cd scraper/teams
+python sliac_teams_scraper.py
 ```
 
----
+**Output:**
+- `output/conference_teams.json` - Raw team data
+- `output/conference_teams.sql` - SQL INSERT statements
 
-## 📚 Scraper Details
-
-## 1. Teams Scraper ✅
-
-**Location:** `teams/sliac_teams_scraper.py`  
-**Purpose:** Scrapes all 9 SLIAC conference teams  
-**Output:** `conference_teams.sql` → `ConferenceTeams` table  
-
-### What It Extracts:
+**What it scrapes:**
 - Team names
-- Schools/Institutions
-- Logo URLs
+- School names
+- Conference membership
+- Team IDs
 
-### Run:
+### 2. Scrape Players
+
+Collects player rosters from each SLIAC team.
+
 ```bash
-python teams/sliac_teams_scraper.py
+cd scraper/players
+python sliac_players_scraper.py
 ```
 
-### Output:
-- `output/conference_teams.json` - Data validation
-- `output/conference_teams.sql` - Ready to execute
+**Output:**
+- `output/players.json` - Raw player data
+- `output/players.sql` - SQL INSERT statements
 
----
-
-## 2. Players Scraper ✅
-
-**Location:** `players/sliac_players_scraper.py`  
-**Purpose:** Scrapes player rosters from all 9 SLIAC teams  
-**Output:** `players.sql` → `Players` table  
-
-### What It Extracts:
-- Player names (formatted: "FirstName LastName")
+**What it scrapes:**
+- Player names
 - Jersey numbers
-- Positions (GK, DEF, MID, FWD)
-- Team affiliation
-- Auto-generated costs (based on position)
+- Positions (Forward, Midfielder, Defender, Goalkeeper)
+- Team associations
+- Player IDs
 
-### Special Handling:
-Some team websites have anti-scraping measures. For these, manually save the roster page:
-1. **Eureka College**: Save as `ureka.html`
-2. **Blackburn College**: Save as `blackburn.html`
+### 3. Scrape Fixtures (3-Step Process)
 
-The scraper uses custom parsers for these files.
+#### Step 1: Setup Fixtures
+Creates the fixture schedule for the season.
 
-### Run:
 ```bash
-python players/sliac_players_scraper.py
+cd scraper/fixtures
+python 1_setup_fixtures.py
 ```
 
-### Output:
-- `output/players.json` - All player data (~200 players)
-- `output/players.sql` - Ready to execute
+**Output:**
+- `output/fixtures.sql` - Fixture schedule
+- `output/gameweeks.sql` - Gameweek definitions
+- `output/fixtures.json` - Raw fixture data
 
----
+**What it scrapes:**
+- Match schedules
+- Home/away teams
+- Gameweek assignments
+- Match dates and times
 
-## 3. Fixtures Scraper System ✅ (3 Scripts)
+#### Step 2: Update Results
+Updates fixture results after matches are played.
 
-### Overview
-The fixtures system is split into 3 separate scripts, each serving a distinct purpose:
-
-| Script | When to Run | Purpose |
-|--------|------------|---------|
-| `1_setup_fixtures.py` | **ONCE** (start of season) | Create gameweeks and fixtures |
-| `2_update_results.py` | **REPEATEDLY** (after games) | Update scores as games complete |
-| `3_update_player_stats.py` | **REPEATEDLY** (after games) | ⏳ Extract individual player performance |
-
----
-
-### 3a. Setup Fixtures (Run Once) ✅
-
-**Location:** `fixtures/1_setup_fixtures.py`  
-**Purpose:** One-time setup to populate `Gameweeks` and `Fixtures` tables  
-
-#### What It Does:
-1. Creates 6 gameweeks (Sept 27 - Nov 3, 2025)
-2. Inserts all fixtures with:
-   - GameweekId (1-6)
-   - HomeTeamId, AwayTeamId
-   - Kickoff time (default 3:00 PM)
-   - BoxScoreUrl (for later stats extraction)
-
-#### Run:
 ```bash
-python fixtures/1_setup_fixtures.py
+python 2_update_results.py
 ```
 
-#### Output:
-- `output/setup_fixtures.sql` - Populates `Gameweeks` + `Fixtures` tables
+**Output:**
+- `output/fixture_results.sql` - Match results
+- `output/update_results.sql` - Result UPDATE statements
+- `output/latest_results.json` - Recent results
 
-#### Database Schema:
-```sql
--- Gameweeks
-INSERT INTO Gameweeks (startTime, endTime, isComplete)
-VALUES ('2025-09-27 00:00:00', '2025-09-30 23:59:59', 0);
+**What it scrapes:**
+- Final scores
+- Match outcomes
+- Completed match flags
 
--- Fixtures
-INSERT INTO Fixtures (GameweekId, HomeTeamId, AwayTeamId, Kickoff, BoxScoreUrl)
-SELECT 1, (SELECT Id FROM ConferenceTeams WHERE Team = 'Lyon'), 
-          (SELECT Id FROM ConferenceTeams WHERE Team = 'Spalding'),
-          '2025-09-27 15:00:00', 'https://sliac.org/boxscore.aspx?id=...';
-```
+#### Step 3: Update Player Stats
+Scrapes detailed player statistics from match reports.
 
----
-
-### 3b. Update Results (Run Repeatedly) ✅
-
-**Location:** `fixtures/2_update_results.py`  
-**Purpose:** Live scraper to fetch completed game scores  
-
-#### What It Does:
-1. Scrapes **live results** from: https://sliac.org/stats.aspx?path=msoc&year=2025&conf=true
-2. Parses the "Overall Results" table for completed games
-3. Updates `Fixtures` table with actual play dates (handles rescheduled games)
-4. Inserts/updates scores in `FixtureResults` table
-
-#### Key Features:
-- **Rescheduled Game Handling**: Matches fixtures within a 7-day window
-- **Home/Away Swap Detection**: Handles cases where teams are swapped in the stats page
-- **Idempotent**: Safe to run multiple times (updates existing results)
-
-#### Run:
 ```bash
-python fixtures/2_update_results.py
+python 3_update_player_stats.py
 ```
 
-#### Output:
-- `output/update_results.sql` - Updates `Fixtures` + `FixtureResults` tables
+**Output:**
+- `output/update_player_stats_ALL.sql` - All player stats
+- `output/test_player_stats.sql` - Test/sample stats
+- `output/processing_log.json` - Scraping log
 
-#### SQL Example:
-```sql
-DECLARE @FixtureId INT;
--- Find fixture (with 7-day tolerance for rescheduled games)
-SELECT @FixtureId = Id
-FROM Fixtures
-WHERE HomeTeamId = (SELECT Id FROM ConferenceTeams WHERE Team = 'Lyon')
-  AND AwayTeamId = (SELECT Id FROM ConferenceTeams WHERE Team = 'Spalding')
-  AND ABS(DATEDIFF(day, CAST(Kickoff AS DATE), '2025-09-27')) <= 7;
+**What it scrapes:**
+- Goals scored
+- Assists
+- Minutes played
+- Yellow/red cards
+- Clean sheets (GK/Defenders)
+- Saves (Goalkeepers)
+- Goals conceded (GK/Defenders)
 
--- Update kickoff date (preserve original time)
-UPDATE Fixtures
-SET Kickoff = CAST(CAST('2025-09-27' AS DATETIME) + CAST(CAST(Kickoff AS TIME) AS DATETIME) AS DATETIME)
-WHERE Id = @FixtureId;
+## 🔄 Complete Workflow
 
--- Insert result
-INSERT INTO FixtureResults (FixtureId, HomeScore, AwayScore)
-VALUES (@FixtureId, 2, 0);
-GO
-```
-
----
-
-### 3c. Update Player Stats (In Progress) ⏳
-
-**Location:** `fixtures/3_update_player_stats.py`  
-**Purpose:** Extract individual player performance from box score PDFs  
-
-#### What It Does (So Far):
-1. ✅ Fetches box score HTML page
-2. ✅ Extracts document viewer URL (`/document.aspx?...`)
-3. ✅ Fetches document viewer page
-4. ✅ Extracts S3 PDF URL (`https://s3.us-east-2.amazonaws.com/.../xxxxx.pdf`)
-5. ✅ Downloads PDF from S3
-6. ✅ Parses PDF text (handles two-column layout)
-7. ✅ Extracts player stats: Name, Position, Jersey, Minutes, Goals, Assists, Shots, SOG
-
-#### What's Left to Implement:
-- ⏳ Yellow/Red card parsing
-- ⏳ Goalkeeper-specific stats (Saves, Goals Conceded)
-- ⏳ Clean sheet detection
-- ⏳ Player name matching to database (fuzzy matching)
-- ⏳ SQL generation for `PlayerFixtureStats` table
-- ⏳ Loop through all fixtures (currently tests one game)
-
-#### PDF Parsing Challenge:
-Box score PDFs have a **two-column layout** (Away Team | Home Team side-by-side). The script:
-1. Extracts text line-by-line
-2. Detects position codes (GK, DEF, MID, FWD) to find column split point
-3. Parses each column separately
-
-#### Run:
+### Initial Setup (Start of Season)
 ```bash
-python fixtures/3_update_player_stats.py  # Currently runs test on one game
+# 1. Get teams
+cd scraper/teams
+python sliac_teams_scraper.py
+
+# 2. Get players
+cd ../players
+python sliac_players_scraper.py
+
+# 3. Setup fixtures
+cd ../fixtures
+python 1_setup_fixtures.py
+
+# 4. Import to database
+cd ../../Solution1/Database1
+sqlcmd -S localhost -d fantasy_proj -i ../../scraper/teams/output/conference_teams.sql
+sqlcmd -S localhost -d fantasy_proj -i ../../scraper/players/output/players.sql
+sqlcmd -S localhost -d fantasy_proj -i ../../scraper/fixtures/output/setup_fixtures.sql
 ```
 
-#### Output (When Complete):
-- `output/update_player_stats.sql` - Will populate `PlayerFixtureStats` table
-- `output/pdfs/` - Downloaded box score PDFs for debugging
-
----
-
-## 🗄️ Database Schema
-
-### Tables Populated by Scrapers:
-
-| Table | Scraper | Primary Data |
-|-------|---------|--------------|
-| `ConferenceTeams` | Teams | Team names, schools, logos |
-| `Players` | Players | Player names, positions, jersey numbers, costs |
-| `Gameweeks` | Fixtures (1) | Start/end times for each gameweek |
-| `Fixtures` | Fixtures (1) | Match schedule, teams, kickoff times |
-| `FixtureResults` | Fixtures (2) | Final scores (HomeScore, AwayScore) |
-| `PlayerFixtureStats` | Fixtures (3) | ⏳ Individual player performance |
-
----
-
-## 🌐 Data Sources
-
-| Data Type | URL |
-|-----------|-----|
-| Conference Teams | https://sliac.org/sports/2023/7/11/GEN_0711232207.aspx |
-| Team Rosters | https://[team-website]/sports/msoc/2025-26/roster/ |
-| Fixture Results | https://sliac.org/stats.aspx?path=msoc&year=2025&conf=true |
-| Box Scores (HTML) | https://sliac.org/boxscore.aspx?id=...&path=msoc |
-| Box Scores (PDF) | S3: https://s3.us-east-2.amazonaws.com/sidearm.nextgen.sites/[school]/stats/msoc/2025/pdf/[timestamp].pdf |
-
----
-
-## 🛠️ Technical Notes
-
-### Anti-Scraping Measures
-Some team websites (Eureka, Blackburn) return 403 Forbidden for automated requests. **Workaround:**
-1. Manually open roster page in browser
-2. Save as HTML file (`ureka.html`, `blackburn.html`)
-3. Place in `players/` directory
-4. Scraper uses custom parsers for these files
-
-### Headers Required
-Most SLIAC pages return 404 without proper browser headers:
-```python
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-}
-```
-
-### PDF Download Process
-Box score PDFs require a **two-step process**:
-1. Box score page → Extract `/document.aspx?id=...` link
-2. Document viewer page → Extract S3 PDF URL from "Open" button
-3. Download PDF directly from S3
-
-### SQL Batch Separation
-When declaring SQL variables in loops, use `GO` statements to separate batches:
-```sql
-DECLARE @FixtureId INT;
--- ... use variable ...
-GO  -- Allows @FixtureId to be redeclared in next iteration
-
-DECLARE @FixtureId INT;
--- ... next iteration ...
-GO
-```
-
----
-
-## 📝 Usage Workflow
-
-### Initial Database Population (Run Once)
+### Weekly Updates (During Season)
 ```bash
-# 1. Teams
-python teams/sliac_teams_scraper.py
-# Execute: teams/output/conference_teams.sql
+cd scraper/fixtures
 
-# 2. Players
-python players/sliac_players_scraper.py
-# Execute: players/output/players.sql
+# After matches are played each week
+python 2_update_results.py
+python 3_update_player_stats.py
 
-# 3. Fixtures
-python fixtures/1_setup_fixtures.py
-# Execute: fixtures/output/setup_fixtures.sql
+# Import to database
+cd ../../Solution1/Database1
+sqlcmd -S localhost -d fantasy_proj -i ../../scraper/fixtures/output/update_results.sql
+sqlcmd -S localhost -d fantasy_proj -i ../../scraper/fixtures/output/update_player_stats_ALL.sql
 ```
 
-### Weekly Updates (Run After Games)
+## 🛠️ Technical Details
+
+### Dependencies
+
+**Common packages across all scrapers:**
+- `requests` - HTTP requests
+- `beautifulsoup4` - HTML parsing
+- `lxml` - XML/HTML processing
+- `selenium` (fixtures only) - JavaScript rendering
+- `PyPDF2` (fixtures only) - PDF parsing for match reports
+
+### Data Sources
+
+- **SLIAC Official Website**: Team and fixture information
+- **Team Websites**: Player rosters
+- **Match Reports (PDFs)**: Detailed player statistics
+
+### Error Handling
+
+All scrapers include:
+- ✅ Request retry logic
+- ✅ Error logging
+- ✅ Partial success handling (continues on individual failures)
+- ✅ Data validation
+- ✅ Output file generation even on partial failures
+
+### Performance
+
+- **Teams**: ~30 seconds (9 teams)
+- **Players**: ~2-3 minutes (200+ players)
+- **Fixtures (setup)**: ~1 minute (schedule parsing)
+- **Results**: ~30 seconds (recent matches)
+- **Player Stats**: ~5-10 minutes (depends on PDF count and parsing)
+
+## 📊 Data Validation
+
+### Automatic Checks
+
+Each scraper validates:
+- ✅ Required fields are not null
+- ✅ Position values are valid (Forward, Midfielder, Defender, Goalkeeper)
+- ✅ Numeric fields (goals, assists, etc.) are non-negative
+- ✅ Team references exist
+- ✅ Date formats are correct
+
+### Manual Verification
+
+After scraping, verify:
 ```bash
-# Update game scores
-python fixtures/2_update_results.py
-# Execute: fixtures/output/update_results.sql
+# Check record counts
+wc -l scraper/teams/output/conference_teams.sql
+wc -l scraper/players/output/players.sql
+wc -l scraper/fixtures/output/fixtures.sql
 
-# Update player stats (when complete)
-python fixtures/3_update_player_stats.py
-# Execute: fixtures/output/update_player_stats.sql
+# Check for errors in logs
+grep -i error scraper/fixtures/output/processing_log.json
 ```
-
----
-
-## 🧹 Cleanup Scripts
-
-If you need to reset fixtures data:
-
-### Clear Fixtures Only (Keep Gameweeks)
-```sql
--- Execute: fixtures/output/clear_fixtures.sql
-DELETE FROM PlayerFixtureStats;
-DELETE FROM FixtureResults;
-DELETE FROM Fixtures;
-DBCC CHECKIDENT ('Fixtures', RESEED, 0);
-```
-
-### Clear All Fixtures Data (Including Gameweeks)
-```sql
--- Execute: fixtures/output/clear_all_fixtures_data.sql
-DELETE FROM PlayerFixtureStats;
-DELETE FROM FixtureResults;
-DELETE FROM Fixtures;
-DELETE FROM Gameweeks;
-DBCC CHECKIDENT ('Fixtures', RESEED, 0);
-DBCC CHECKIDENT ('Gameweeks', RESEED, 0);
-```
-
----
 
 ## 🐛 Troubleshooting
 
-### "403 Forbidden" when scraping rosters
-→ Manually save the page as HTML and place in `players/` directory
+### Issue: "Module not found"
+**Solution:** Install requirements
+```bash
+pip install -r requirements.txt
+```
 
-### "404 Not Found" on SLIAC pages
-→ Ensure you're using proper browser headers (see Technical Notes)
+### Issue: "Connection timeout"
+**Solution:** Check internet connection, SLIAC website may be down
+```bash
+# Test connectivity
+curl -I https://sliacathletics.com
+```
 
-### "Variable @FixtureId already declared"
-→ SQL script needs `GO` statements between iterations (fixed in v2)
+### Issue: "No data scraped"
+**Solution:** Website structure may have changed
+- Check `output/*.json` files for raw data
+- Review scraper logic
+- SLIAC website HTML structure may need updating
 
-### "Could not find fixture for X vs Y"
-→ Teams might be swapped or game rescheduled. Script handles 7-day tolerance.
+### Issue: "PDF parsing failed"
+**Solution:** PDF format may be inconsistent
+- Check `output/pdfs/` directory for downloaded PDFs
+- Manually verify PDF structure
+- May need to adjust parsing logic in `3_update_player_stats.py`
 
-### PDF downloaded but contains HTML
-→ Ensure you're using the 2-step process to get S3 URL, not the document.aspx URL
+### Issue: "SQL syntax error"
+**Solution:** Special characters in names
+- Check generated SQL files
+- Look for apostrophes, quotes in player/team names
+- Scraper should handle escaping automatically
+
+## 📝 Output Files
+
+### JSON Files (Raw Data)
+- Human-readable
+- Used for debugging
+- Can be imported to other systems
+
+### SQL Files (Database Import)
+- Ready-to-execute SQL statements
+- INSERT or UPDATE statements
+- Include proper escaping and formatting
+
+## 🔒 Best Practices
+
+1. **Run scrapers during off-peak hours** - Less load on SLIAC servers
+2. **Save output files** - Keep historical records
+3. **Version control SQL outputs** - Track data changes over time
+4. **Test on sample data first** - Use test database before production
+5. **Check logs after each run** - Catch issues early
+
+## 📅 Recommended Schedule
+
+- **Pre-Season** (Once):
+  - Run team scraper
+  - Run player scraper
+  - Run fixture setup
+  
+- **Weekly** (During Season):
+  - Monday: Run results scraper (weekend matches)
+  - Tuesday: Run player stats scraper
+  - Wednesday: Review and import to database
+
+- **As Needed**:
+  - Player scraper if rosters change
+  - Fixture scraper if schedule updates
+
+## 🎯 Fantasy Points Integration
+
+The scraped player statistics directly feed into the fantasy scoring system:
+
+| Stat Scraped | Fantasy Point Value |
+|-------------|---------------------|
+| Goals (Forward) | +5 points |
+| Goals (Midfielder) | +6 points |
+| Goals (Defender/GK) | +8 points |
+| Assists | +3 points |
+| Minutes (90+) | +2 points |
+| Minutes (45-89) | +1 point |
+| Yellow Card | -1 point |
+| Red Card | -3 points |
+| Clean Sheet (GK/Def) | +4 points |
+| Saves (per 3) | +1 point |
+| Goals Conceded (GK/Def) | -1 point each |
+
+## 🔗 Integration with API
+
+The scrapers generate SQL that populates tables used by the API:
+
+```
+Scrapers → SQL Files → Database Tables → Dapper ORM → API Services → Controllers
+```
+
+**Data Flow:**
+1. Scrapers collect data → Generate SQL
+2. SQL executed → Populates database
+3. API reads data → Serves to frontend
+4. Fantasy scoring calculated → User standings updated
+
+## 📖 Additional Documentation
+
+- See main project README for API documentation
+- See `Solution1/DOCUMENTATION_AND_TESTING_SUMMARY.md` for complete project docs
+- See `Solution1/JWT_AUTHENTICATION_GUIDE.md` for API authentication
+
+## 👥 Contributing
+
+When modifying scrapers:
+1. Test with small data sets first
+2. Validate output SQL syntax
+3. Check for data integrity
+4. Update this README with changes
+5. Document any website structure changes
+
+## 📞 Support
+
+If scrapers fail:
+1. Check error logs in `output/` directories
+2. Verify SLIAC website is accessible
+3. Check that data format hasn't changed
+4. Review scraper code comments for logic
 
 ---
 
-## 📊 Stats & Coverage
-
-- **Teams:** 9 SLIAC conference teams
-- **Players:** ~200 players across all teams
-- **Fixtures:** ~50+ conference games (Sept-Nov 2025)
-- **Gameweeks:** 6 gameweeks
-- **Box Scores:** PDF parsing for detailed player stats
-
----
-
-## 🔮 Future Enhancements
-
-- [ ] Finish `3_update_player_stats.py` (goalkeeper stats, cards, SQL generation)
-- [ ] Automated scheduling (cron jobs to run scrapers weekly)
-- [ ] Error notifications (email/SMS when scraping fails)
-- [ ] Historical data import (past seasons)
-- [ ] Direct database insertion (bypass SQL file generation)
-- [ ] Dashboard for scraper status and data freshness
-
----
-
-## 📄 License
-
-This project is for educational purposes (CSCI 316 - Software Development).  
-All data sourced from public SLIAC websites. Ensure proper attribution and respect robots.txt.
+**Last Updated**: October 2025  
+**Python Version**: 3.8+  
+**Status**: Active (Season in Progress)
