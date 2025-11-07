@@ -71,11 +71,11 @@ def main():
     print("="*70)
     
     # Load fixtures
-    with open('scraper/fixtures/output/fixtures.json', 'r') as f:
+    with open('output/fixtures.json', 'r') as f:
         fixtures = json.load(f)
     
     # Load processing log
-    with open('scraper/fixtures/output/processing_log.json', 'r') as f:
+    with open('output/processing_log.json', 'r') as f:
         log = json.load(f)
     
     # Find failed fixtures
@@ -99,5 +99,10 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
 
 

@@ -7,8 +7,14 @@ import json
 import os
 import sys
 
+#print the current working directory
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Import the function - need to handle the filename with numbers
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
 # Load fixtures
-with open('output/fixtures.json', 'r') as f:
+with open(os.path.join(script_dir, 'output/fixtures.json'), 'r') as f:
     fixtures = json.load(f)
 
 # Find Eureka vs Principia game (fixture 10)
@@ -46,3 +52,9 @@ for i, fix in enumerate(fixtures[:5]):
         print(f"\nFixture {i+1}:")
         print(f"  JSON: {fix['away']} @ {fix['home']} ({fix['away_score']}-{fix['home_score']})")
         print(f"  PDF would show: '{fix['away']} -vs- {fix['home']}'")
+
+
+
+
+
+

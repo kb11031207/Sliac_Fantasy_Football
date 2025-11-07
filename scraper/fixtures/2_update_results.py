@@ -274,7 +274,7 @@ def save_games_json(games):
     """
     Save games to JSON for reference
     """
-    output_file = 'scraper/fixtures/output/latest_results.json'
+    output_file = 'output/latest_results.json'
     import json
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(games, f, indent=2)
@@ -301,7 +301,7 @@ def main():
     update_sql, count = generate_update_sql(completed_games)
     
     # Save SQL
-    output_file = 'scraper/fixtures/output/update_results.sql'
+    output_file = 'output/update_results.sql'
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(update_sql)
     
@@ -309,8 +309,8 @@ def main():
     print(f"✅ Successfully extracted {count} completed games with FRESH data!")
     print("\n" + "=" * 70)
     print("📝 Next steps:")
-    print("  1. Review: scraper/fixtures/output/latest_results.json")
-    print("  2. Run SQL: scraper/fixtures/output/update_results.sql")
+    print("  1. Review: output/latest_results.json")
+    print("  2. Run SQL: output/update_results.sql")
     print("  3. All scores are now up-to-date including today's games!")
     print("\n💡 Tip: Run this script after each gameweek to stay current")
 
