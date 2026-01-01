@@ -18,7 +18,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 40s
+      start_period: 90s
 
   db-init:
     image: mcr.microsoft.com/mssql/server:2022-latest
