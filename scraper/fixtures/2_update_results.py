@@ -16,6 +16,8 @@ Run this whenever you want fresh results.
 import requests
 from bs4 import BeautifulSoup
 import re
+import json
+import os
 from datetime import datetime
 
 def get_team_abbreviation(team_name):
@@ -187,6 +189,7 @@ def generate_update_sql(completed_games):
     Generate SQL to insert/update fixture results
     Uses MERGE to handle both new results and updates
     Handles rescheduled games by matching within a 7-day window
+    Also updates BoxScoreUrl in Fixtures table
     """
     if not completed_games:
         return "-- No completed games found!\n", 0
@@ -197,6 +200,7 @@ def generate_update_sql(completed_games):
     sql.append(f"-- Scraped from: https://sliac.org/stats.aspx?path=msoc&year=2025&conf=true")
     sql.append("-- Inserts results into FixtureResults table")
     sql.append("-- Updates Fixtures.Kickoff to actual date played (handles reschedules)")
+    sql.append("-- Updates Fixtures.BoxScoreUrl with box score URLs")
     sql.append("-- Note: Matches games within 7-day window to handle reschedules")
     sql.append("")
     
@@ -206,6 +210,14 @@ def generate_update_sql(completed_games):
         home_score = game['home_score']
         away_score = game['away_score']
         date = game['date']
+        box_score_url = game.get('box_score_url')
+        
+        # Escape box_score_url for SQL (handle None)
+        if box_score_url:
+            box_score_url_escaped = box_score_url.replace("'", "''")
+            box_score_sql = f"'{box_score_url_escaped}'"
+        else:
+            box_score_sql = "NULL"
         
         sql.append(f"""-- {home} {home_score} - {away_score} {away} ({date})
 DECLARE @FixtureId INT;
@@ -236,6 +248,11 @@ BEGIN
     -- Update fixture kickoff date (preserve original time)
     UPDATE Fixtures
     SET Kickoff = CAST(CAST('{date}' AS DATETIME) + CAST(CAST(Kickoff AS TIME) AS DATETIME) AS DATETIME)
+    WHERE Id = @FixtureId;
+    
+    -- Update BoxScoreUrl if provided
+    UPDATE Fixtures
+    SET BoxScoreUrl = {box_score_sql}
     WHERE Id = @FixtureId;
     
     -- Insert or update result (swap scores if teams were swapped)
@@ -275,10 +292,69 @@ def save_games_json(games):
     Save games to JSON for reference
     """
     output_file = 'output/latest_results.json'
-    import json
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(games, f, indent=2)
     print(f"💾 Saved JSON to: {output_file}")
+
+def update_fixtures_json(completed_games):
+    """
+    Update fixtures.json with new box_score_urls from scraped results
+    Matches games by date, home team, and away team
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    fixtures_file = os.path.join(script_dir, 'output/fixtures.json')
+    
+    if not os.path.exists(fixtures_file):
+        print(f"[WARNING] fixtures.json not found: {fixtures_file}")
+        print("   Skipping fixtures.json update")
+        return
+    
+    # Load existing fixtures
+    try:
+        with open(fixtures_file, 'r', encoding='utf-8') as f:
+            fixtures = json.load(f)
+    except Exception as e:
+        print(f"[ERROR] Failed to load fixtures.json: {e}")
+        return
+    
+    # Create a lookup: (date, home, away) -> box_score_url
+    results_lookup = {}
+    for game in completed_games:
+        key = (game['date'], game['home'], game['away'])
+        if game.get('box_score_url'):
+            results_lookup[key] = game['box_score_url']
+    
+    # Update fixtures with box_score_urls
+    updated_count = 0
+    for fixture in fixtures:
+        fixture_date = fixture.get('date')
+        fixture_home = fixture.get('home')
+        fixture_away = fixture.get('away')
+        
+        # Try exact match first
+        key = (fixture_date, fixture_home, fixture_away)
+        if key in results_lookup:
+            new_url = results_lookup[key]
+            if fixture.get('box_score_url') != new_url:
+                fixture['box_score_url'] = new_url
+                updated_count += 1
+                continue
+        
+        # Try swapped home/away (in case teams are recorded differently)
+        swapped_key = (fixture_date, fixture_away, fixture_home)
+        if swapped_key in results_lookup:
+            new_url = results_lookup[swapped_key]
+            if fixture.get('box_score_url') != new_url:
+                fixture['box_score_url'] = new_url
+                updated_count += 1
+    
+    # Save updated fixtures
+    try:
+        with open(fixtures_file, 'w', encoding='utf-8') as f:
+            json.dump(fixtures, f, indent=2)
+        print(f"💾 Updated fixtures.json: {updated_count} box_score_urls updated")
+    except Exception as e:
+        print(f"[ERROR] Failed to save fixtures.json: {e}")
 
 def main():
     print("=" * 70)
@@ -293,6 +369,9 @@ def main():
     if not completed_games:
         print("\n❌ No games found!")
         return
+    
+    # Update fixtures.json with box_score_urls
+    update_fixtures_json(completed_games)
     
     # Save JSON for reference
     save_games_json(completed_games)
@@ -310,8 +389,9 @@ def main():
     print("\n" + "=" * 70)
     print("📝 Next steps:")
     print("  1. Review: output/latest_results.json")
-    print("  2. Run SQL: output/update_results.sql")
-    print("  3. All scores are now up-to-date including today's games!")
+    print("  2. Review: scraper/fixtures/output/fixtures.json (updated with box_score_urls)")
+    print("  3. Run SQL: output/update_results.sql")
+    print("  4. All scores and box_score_urls are now up-to-date including today's games!")
     print("\n💡 Tip: Run this script after each gameweek to stay current")
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ namespace Service_layer.Services
         private readonly ISquadRepository _squadRepository;
         private readonly IPlayerRepository _playerRepository;
         private readonly IGameweekRepository _gameweekRepository;
+        private readonly IPointsCalculationService _pointsCalculationService;
         private readonly IMapper _mapper;
 
         // Squad constraints from SLIAC rules
@@ -26,11 +27,13 @@ namespace Service_layer.Services
             ISquadRepository squadRepository,
             IPlayerRepository playerRepository,
             IGameweekRepository gameweekRepository,
+            IPointsCalculationService pointsCalculationService,
             IMapper mapper)
         {
             _squadRepository = squadRepository;
             _playerRepository = playerRepository;
             _gameweekRepository = gameweekRepository;
+            _pointsCalculationService = pointsCalculationService;
             _mapper = mapper;
         }
 
@@ -42,6 +45,9 @@ namespace Service_layer.Services
             var squadDto = _mapper.Map<SquadDto>(squad);
             squadDto.TotalCost = squad.SquadPlayers.Sum(sp => sp.PlayerCost);
             
+            // Calculate individual player points and total points
+            await CalculateSquadPointsAsync(squadDto, squad.GameweekId);
+            
             return squadDto;
         }
 
@@ -52,6 +58,9 @@ namespace Service_layer.Services
 
             var squadDto = _mapper.Map<SquadDto>(squad);
             squadDto.TotalCost = squad.SquadPlayers.Sum(sp => sp.PlayerCost);
+            
+            // Calculate individual player points and total points
+            await CalculateSquadPointsAsync(squadDto, gameweekId);
             
             return squadDto;
         }
@@ -136,6 +145,9 @@ namespace Service_layer.Services
             var fullSquad = await _squadRepository.GetSquadWithPlayersAsync(createdSquad.Id);
             var squadDto = _mapper.Map<SquadDto>(fullSquad);
             squadDto.TotalCost = fullSquad!.SquadPlayers.Sum(sp => sp.PlayerCost);
+            
+            // Calculate individual player points and total points
+            await CalculateSquadPointsAsync(squadDto, createDto.GameweekId);
 
             return squadDto;
         }
@@ -213,6 +225,9 @@ namespace Service_layer.Services
             var updatedSquad = await _squadRepository.GetSquadWithPlayersAsync(squadId);
             var squadDto = _mapper.Map<SquadDto>(updatedSquad);
             squadDto.TotalCost = updatedSquad!.SquadPlayers.Sum(sp => sp.PlayerCost);
+            
+            // Calculate individual player points and total points
+            await CalculateSquadPointsAsync(squadDto, squad.GameweekId);
 
             return squadDto;
         }
@@ -318,6 +333,39 @@ namespace Service_layer.Services
             var outfieldTotal = defenders + midfielders + forwards;
             if (outfieldTotal != 10)
                 throw new ArgumentException("Starting 11 must have 1 goalkeeper and 10 outfield players");
+        }
+
+        private async Task CalculateSquadPointsAsync(SquadDto squadDto, int gameweekId)
+        {
+            var totalPoints = 0;
+
+            foreach (var player in squadDto.Players)
+            {
+                int playerPoints = 0;
+
+                // Only calculate points for starters
+                if (player.IsStarter)
+                {
+                    // Calculate player's total points for this gameweek
+                    playerPoints = await _pointsCalculationService.CalculatePlayerGameweekPointsAsync(
+                        player.PlayerId, 
+                        gameweekId);
+
+                    // Captain gets double points
+                    if (player.IsCaptain)
+                    {
+                        playerPoints *= 2;
+                    }
+
+                    // Add to total (only starters count toward total)
+                    totalPoints += playerPoints;
+                }
+
+                // Set points for this player (even if 0 for bench players)
+                player.Points = playerPoints;
+            }
+
+            squadDto.TotalPoints = totalPoints;
         }
     }
 }

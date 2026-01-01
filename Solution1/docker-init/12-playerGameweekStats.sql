@@ -1,4 +1,4 @@
-﻿CREATE TABLE playerGameweekStats (
+CREATE TABLE playerGameweekStats (
     Id INT IDENTITY(1,1) PRIMARY KEY,
     PlayerId INT NOT NULL,
     GameweekId INT NOT NULL,
@@ -22,3 +22,4 @@
     CONSTRAINT FK_Stats_Gameweek FOREIGN KEY (GameweekId) REFERENCES Gameweeks(Id),
     CONSTRAINT FK_Stats_Fixture FOREIGN KEY (FixtureId) REFERENCES Fixtures(Id)
 );
+

@@ -13,6 +13,8 @@ namespace Data_Layer.Models
         public byte GoalsConceded { get; set; } = 0;
         public byte OwnGoals { get; set; } = 0;
         public byte Saves { get; set; } = 0;
+        public byte Shots { get; set; } = 0;
+        public byte ShotsOnGoal { get; set; } = 0;
         
         // Navigation properties
         public virtual Player Player { get; set; } = null!;

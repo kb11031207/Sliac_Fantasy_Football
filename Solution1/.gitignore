@@ -1,0 +1,4 @@
+# .env files (contains sensitive information)
+.env
+!.env.example
+

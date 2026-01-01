@@ -409,6 +409,12 @@ Points are calculated based on SLIAC Fantasy Football rules:
 - **Goalkeeper Saves**: +1 point per 3 saves
 - **Goals Conceded (GK/Defender)**: -1 point per goal
 
+### Offensive
+- **Shots on Goal (Position-Dependent)**:
+  - **Defenders**: +1 point per shot on goal
+  - **Midfielders**: +2 points per 3 shots on goal
+  - **Forwards**: +1 point per 3 shots on goal
+
 ### Squad Rules
 - Users must have a complete squad to join leagues
 - If no changes are made, the squad carries forward to the next gameweek

@@ -10,6 +10,8 @@ namespace Data_Layer.Interfaces
         Task<bool> AddUserToLeagueAsync(int userId, int leagueId);
         Task<bool> RemoveUserFromLeagueAsync(int userId, int leagueId);
         Task<bool> IsUserInLeagueAsync(int userId, int leagueId);
+        Task<IEnumerable<User>> GetLeagueMembersAsync(int leagueId);
+        Task<int> GetLeagueMemberCountAsync(int leagueId);
     }
 }
 

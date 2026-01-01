@@ -41,6 +41,8 @@ namespace Service_layer.DTOs
         public bool CleanSheet { get; set; }
         public byte GoalsConceded { get; set; }
         public byte Saves { get; set; }
+        public byte Shots { get; set; }
+        public byte ShotsOnGoal { get; set; }
     }
 }
 

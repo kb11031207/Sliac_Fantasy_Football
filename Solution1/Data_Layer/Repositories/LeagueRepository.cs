@@ -85,6 +85,30 @@ namespace Data_Layer.Repositories
             return count > 0;
         }
 
+        public async Task<IEnumerable<User>> GetLeagueMembersAsync(int leagueId)
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            const string sql = @"
+                SELECT u.id, u.email, u.username, u.school, u.passHash, u.passSalt,
+                       u.FailedLoginAttempts, u.LockoutEnd, u.RefreshToken, u.RefreshTokenExpiryTime
+                FROM usersXleagues ul
+                INNER JOIN users u ON ul.userId = u.id
+                WHERE ul.leagueId = @LeagueId";
+            
+            return await connection.QueryAsync<User>(sql, new { LeagueId = leagueId });
+        }
+
+        public async Task<int> GetLeagueMemberCountAsync(int leagueId)
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            const string sql = @"
+                SELECT COUNT(*) 
+                FROM usersXleagues 
+                WHERE leagueId = @LeagueId";
+            
+            return await connection.ExecuteScalarAsync<int>(sql, new { LeagueId = leagueId });
+        }
+
         public override async Task<League> AddAsync(League entity)
         {
             using var connection = _connectionFactory.CreateConnection();

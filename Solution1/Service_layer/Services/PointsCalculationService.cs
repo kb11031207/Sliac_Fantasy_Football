@@ -23,6 +23,12 @@ namespace Service_layer.Services
         private const int GK_SAVES_BONUS_THRESHOLD = 3;
         private const int GK_SAVES_BONUS_POINTS = 1;
         private const int GOAL_CONCEDED_POINTS = -1;
+        // Shots on goal bonus - position dependent
+        private const int DEF_SHOTS_ON_GOAL_POINTS = 1; // 1 point per shot on goal
+        private const int MID_SHOTS_ON_GOAL_THRESHOLD = 3;
+        private const int MID_SHOTS_ON_GOAL_POINTS = 2; // 2 points per 3 shots on goal
+        private const int FWD_SHOTS_ON_GOAL_THRESHOLD = 3;
+        private const int FWD_SHOTS_ON_GOAL_POINTS = 1; // 1 point per 3 shots on goal
 
         public PointsCalculationService(IDbConnectionFactory connectionFactory)
         {
@@ -37,7 +43,7 @@ namespace Service_layer.Services
                 SELECT 
                     pfs.PlayerId, pfs.FixtureId, pfs.MinutesPlayed, pfs.Goals, pfs.Assists,
                     pfs.YellowCards, pfs.RedCards, pfs.CleanSheet, pfs.GoalsConceded,
-                    pfs.OwnGoals, pfs.Saves,
+                    pfs.OwnGoals, pfs.Saves, pfs.Shots, pfs.ShotsOnGoal,
                     p.id, p.position, p.name, p.playerNum, p.teamId, p.cost, p.pictureUrl
                 FROM playerFixtureStats pfs
                 INNER JOIN players p ON pfs.PlayerId = p.id
@@ -84,6 +90,30 @@ namespace Service_layer.Services
                 if (stat.position == 1 && stat.Saves >= GK_SAVES_BONUS_THRESHOLD)
                 {
                     points += (stat.Saves / GK_SAVES_BONUS_THRESHOLD) * GK_SAVES_BONUS_POINTS;
+                }
+            }
+
+            // Shots on goal bonus (position-dependent, for outfield players only)
+            // GKs don't get this bonus as they have saves bonus instead
+            if (stat.position != 1 && stat.ShotsOnGoal > 0) // Not GK
+            {
+                if (stat.position == 2) // Defender: 1 point per shot on goal
+                {
+                    points += stat.ShotsOnGoal * DEF_SHOTS_ON_GOAL_POINTS;
+                }
+                else if (stat.position == 3) // Midfielder: 2 points per 3 shots on goal
+                {
+                    if (stat.ShotsOnGoal >= MID_SHOTS_ON_GOAL_THRESHOLD)
+                    {
+                        points += (stat.ShotsOnGoal / MID_SHOTS_ON_GOAL_THRESHOLD) * MID_SHOTS_ON_GOAL_POINTS;
+                    }
+                }
+                else if (stat.position == 4) // Forward: 1 point per 3 shots on goal
+                {
+                    if (stat.ShotsOnGoal >= FWD_SHOTS_ON_GOAL_THRESHOLD)
+                    {
+                        points += (stat.ShotsOnGoal / FWD_SHOTS_ON_GOAL_THRESHOLD) * FWD_SHOTS_ON_GOAL_POINTS;
+                    }
                 }
             }
 

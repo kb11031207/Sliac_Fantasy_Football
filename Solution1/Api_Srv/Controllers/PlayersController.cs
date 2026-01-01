@@ -67,7 +67,7 @@ namespace Api_Srv.Controllers
         /// Search players with filters
         /// </summary>
         [HttpPost("search")]
-        [ProducesResponseType(typeof(IEnumerable<PlayerDto>), 200)]
+        [ProducesResponseType(typeof(IEnumerable<PlayerWithStatsDto>), 200)]
         public async Task<IActionResult> SearchPlayers([FromBody] PlayerFilterDto filter)
         {
             var players = await _playerService.SearchPlayersAsync(filter);

@@ -10,12 +10,21 @@ namespace Service_layer.Services
     {
         private readonly ILeagueRepository _leagueRepository;
         private readonly IUserRepository _userRepository;
+        private readonly ISquadRepository _squadRepository;
+        private readonly IPointsCalculationService _pointsCalculationService;
         private readonly IMapper _mapper;
 
-        public LeagueService(ILeagueRepository leagueRepository, IUserRepository userRepository, IMapper mapper)
+        public LeagueService(
+            ILeagueRepository leagueRepository, 
+            IUserRepository userRepository,
+            ISquadRepository squadRepository,
+            IPointsCalculationService pointsCalculationService,
+            IMapper mapper)
         {
             _leagueRepository = leagueRepository;
             _userRepository = userRepository;
+            _squadRepository = squadRepository;
+            _pointsCalculationService = pointsCalculationService;
             _mapper = mapper;
         }
 
@@ -29,6 +38,9 @@ namespace Service_layer.Services
             // Get owner username
             var owner = await _userRepository.GetByIdAsync(league.Owner);
             leagueDto.OwnerUsername = owner?.Username;
+            
+            // Calculate member count
+            leagueDto.MemberCount = await _leagueRepository.GetLeagueMemberCountAsync(id);
             
             return leagueDto;
         }
@@ -96,13 +108,35 @@ namespace Service_layer.Services
         public async Task<IEnumerable<LeagueDto>> GetUserLeaguesAsync(int userId)
         {
             var leagues = await _leagueRepository.GetUserLeaguesAsync(userId);
-            return _mapper.Map<IEnumerable<LeagueDto>>(leagues);
+            var leagueDtos = new List<LeagueDto>();
+            
+            foreach (var league in leagues)
+            {
+                var dto = _mapper.Map<LeagueDto>(league);
+                var owner = await _userRepository.GetByIdAsync(league.Owner);
+                dto.OwnerUsername = owner?.Username;
+                dto.MemberCount = await _leagueRepository.GetLeagueMemberCountAsync(league.Id);
+                leagueDtos.Add(dto);
+            }
+            
+            return leagueDtos;
         }
 
         public async Task<IEnumerable<LeagueDto>> GetPublicLeaguesAsync()
         {
             var leagues = await _leagueRepository.GetPublicLeaguesAsync();
-            return _mapper.Map<IEnumerable<LeagueDto>>(leagues);
+            var leagueDtos = new List<LeagueDto>();
+            
+            foreach (var league in leagues)
+            {
+                var dto = _mapper.Map<LeagueDto>(league);
+                var owner = await _userRepository.GetByIdAsync(league.Owner);
+                dto.OwnerUsername = owner?.Username;
+                dto.MemberCount = await _leagueRepository.GetLeagueMemberCountAsync(league.Id);
+                leagueDtos.Add(dto);
+            }
+            
+            return leagueDtos;
         }
 
         public async Task<LeagueDetailsDto?> GetLeagueDetailsAsync(int leagueId)
@@ -121,24 +155,69 @@ namespace Service_layer.Services
             var owner = await _userRepository.GetByIdAsync(league.Owner);
             leagueDetails.OwnerUsername = owner?.Username;
 
-            // Get members - this would require additional repository method
-            // Placeholder for now
-            leagueDetails.Members = new List<LeagueMemberDto>();
+            // Get members from repository
+            var members = await _leagueRepository.GetLeagueMembersAsync(leagueId);
+            leagueDetails.Members = members.Select(u => new LeagueMemberDto
+            {
+                UserId = u.Id,
+                Username = u.Username,
+                School = u.School
+            }).ToList();
 
             return leagueDetails;
         }
 
         public async Task<LeagueStandingsDto> GetLeagueStandingsAsync(int leagueId, int gameweekId)
         {
-            // This would query UserGameweekScores and calculate standings
-            // Placeholder implementation
-            await Task.CompletedTask;
-            
+            // Get all league members
+            var members = await _leagueRepository.GetLeagueMembersAsync(leagueId);
+            var standings = new List<LeagueStandingEntry>();
+
+            // Calculate points for each member
+            foreach (var member in members)
+            {
+                var totalPoints = 0;
+
+                // Get user's squad for this gameweek
+                var squad = await _squadRepository.GetUserSquadForGameweekAsync(member.Id, gameweekId);
+                
+                if (squad != null)
+                {
+                    // Calculate points for the squad
+                    totalPoints = await _pointsCalculationService.CalculateSquadGameweekPointsAsync(squad.Id);
+                }
+
+                // Add to standings
+                standings.Add(new LeagueStandingEntry
+                {
+                    UserId = member.Id,
+                    Username = member.Username,
+                    TotalPoints = totalPoints
+                });
+            }
+
+            // Sort by points (descending) and assign ranks
+            var sortedStandings = standings
+                .OrderByDescending(s => s.TotalPoints)
+                .ThenBy(s => s.Username) // Tiebreaker: alphabetical by username
+                .ToList();
+
+            // Assign ranks (handling ties)
+            int currentRank = 1;
+            for (int i = 0; i < sortedStandings.Count; i++)
+            {
+                if (i > 0 && sortedStandings[i].TotalPoints != sortedStandings[i - 1].TotalPoints)
+                {
+                    currentRank = i + 1;
+                }
+                sortedStandings[i].Rank = currentRank;
+            }
+
             return new LeagueStandingsDto
             {
                 LeagueId = leagueId,
                 GameweekId = gameweekId,
-                Standings = new List<LeagueStandingEntry>()
+                Standings = sortedStandings
             };
         }
 
@@ -166,6 +245,9 @@ namespace Service_layer.Services
             // Get owner username
             var owner = await _userRepository.GetByIdAsync(league.Owner);
             leagueDto.OwnerUsername = owner?.Username;
+            
+            // Calculate member count
+            leagueDto.MemberCount = await _leagueRepository.GetLeagueMemberCountAsync(leagueId);
             
             return leagueDto;
         }

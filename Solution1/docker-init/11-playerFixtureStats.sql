@@ -1,4 +1,4 @@
-﻿--maybe 
+--maybe 
 
 CREATE TABLE playerFixtureStats (
     PlayerId INT NOT NULL,
@@ -18,3 +18,4 @@ CREATE TABLE playerFixtureStats (
     CONSTRAINT FK_PFS_Player FOREIGN KEY (PlayerId) REFERENCES Players(Id),
     CONSTRAINT FK_PFS_Fixture FOREIGN KEY (FixtureId) REFERENCES Fixtures(Id)
 );
+

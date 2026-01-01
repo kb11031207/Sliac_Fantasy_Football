@@ -8,7 +8,7 @@ namespace Service_layer.Interfaces
         Task<IEnumerable<PlayerDto>> GetAllPlayersAsync();
         Task<IEnumerable<PlayerDto>> GetPlayersByTeamAsync(int teamId);
         Task<IEnumerable<PlayerDto>> GetPlayersByPositionAsync(byte position);
-        Task<IEnumerable<PlayerDto>> SearchPlayersAsync(PlayerFilterDto filter);
+        Task<IEnumerable<PlayerWithStatsDto>> SearchPlayersAsync(PlayerFilterDto filter);
         Task<PlayerStatsDto?> GetPlayerGameweekStatsAsync(int playerId, int gameweekId);
     }
 }

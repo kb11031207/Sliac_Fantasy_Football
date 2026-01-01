@@ -143,7 +143,7 @@ namespace Data_Layer.Repositories
                 SELECT 
                     pfs.PlayerId, pfs.FixtureId, pfs.MinutesPlayed, pfs.Goals, pfs.Assists,
                     pfs.YellowCards, pfs.RedCards, pfs.CleanSheet, pfs.GoalsConceded,
-                    pfs.OwnGoals, pfs.Saves,
+                    pfs.OwnGoals, pfs.Saves, pfs.Shots, pfs.ShotsOnGoal,
                     p.id, p.position, p.name, p.playerNum, p.teamId, p.cost, p.pictureUrl
                 FROM playerFixtureStats pfs
                 INNER JOIN players p ON pfs.PlayerId = p.id

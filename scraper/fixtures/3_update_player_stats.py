@@ -40,8 +40,6 @@ def get_pdf_url_from_boxscore(boxscore_url):
     1. Scrape box score page -> get document.aspx link
     2. Scrape document viewer page -> get S3 PDF URL from "Open" button
     """
-    print(f"   Step 1: Fetching box score page...")
-    
     try:
         response = requests.get(boxscore_url, headers=HEADERS, timeout=30)
         response.raise_for_status()
@@ -64,10 +62,7 @@ def get_pdf_url_from_boxscore(boxscore_url):
     
     document_path = pdf_link.get('href')
     document_url = BASE_URL + document_path
-    print(f"   [OK] Found document viewer URL")
     
-    # Step 2: Fetch the document viewer page to get the S3 PDF link
-    print(f"   Step 2: Fetching document viewer page...")
     try:
         response = requests.get(document_url, headers=HEADERS, timeout=30)
         response.raise_for_status()
@@ -95,15 +90,12 @@ def get_pdf_url_from_boxscore(boxscore_url):
         print(f"   [ERROR] Invalid PDF URL: {pdf_url}")
         return None
     
-    print(f"   [OK] Found S3 PDF URL!")
     return pdf_url
 
 def download_pdf(pdf_url, output_path):
     """
     Download PDF file from S3 URL
     """
-    print(f"   Downloading PDF from S3...")
-    
     try:
         response = requests.get(pdf_url, headers=HEADERS, timeout=30, allow_redirects=True)
         response.raise_for_status()
@@ -117,7 +109,6 @@ def download_pdf(pdf_url, output_path):
         with open(output_path, 'wb') as f:
             f.write(response.content)
         
-        print(f"   [OK] PDF downloaded ({len(response.content)} bytes)")
         return True
     except requests.exceptions.RequestException as e:
         print(f"   [ERROR] Error downloading PDF: {e}")
@@ -153,13 +144,9 @@ def parse_html_box_score(box_score_url, fixture_home_team=None, fixture_away_tea
     Returns:
         stats dict (same format as parse_pdf_stats) or None
     """
-    print(f"   [HTML] Fetching box score HTML page...")
-    
-    # Step 1: Fetch the HTML page
     try:
         response = requests.get(box_score_url, headers=HEADERS, timeout=30)
         response.raise_for_status()
-        print(f"   [HTML] Successfully fetched HTML ({len(response.content)} bytes)")
     except requests.exceptions.RequestException as e:
         print(f"   [HTML ERROR] Failed to fetch HTML: {e}")
         return None
@@ -180,13 +167,11 @@ def parse_html_box_score(box_score_url, fixture_home_team=None, fixture_away_tea
         img = home_team_div.find('img', class_='MainLogo')
         if img and img.get('alt'):
             html_home_team = img.get('alt').strip()
-            print(f"   [HTML] Found home team from HTML: {html_home_team}")
     
     if away_team_div:
         img = away_team_div.find('img', class_='MainLogo')
         if img and img.get('alt'):
             html_away_team = img.get('alt').strip()
-            print(f"   [HTML] Found away team from HTML: {html_away_team}")
     
     # Step 4: Use fixture data as source of truth, but verify against HTML
     # Fixture data is reliable (from fixtures.json), HTML is usually correct too
@@ -213,12 +198,9 @@ def parse_html_box_score(box_score_url, fixture_home_team=None, fixture_away_tea
         'away_gk': None
     }
     
-    print(f"   [HTML] Teams identified: {away_team} (away) vs {home_team} (home)")
-    
-    # Step 4: Find and parse player stats tables
+    # Find and parse player stats tables
     # Look for tables with captions containing "Player Stats"
     all_tables = soup.find_all('table', class_='sidearm-table')
-    print(f"   [HTML] Found {len(all_tables)} tables with sidearm-table class")
     
     # Find player stats tables by caption
     player_stats_tables = []
@@ -226,20 +208,15 @@ def parse_html_box_score(box_score_url, fixture_home_team=None, fixture_away_tea
         caption = table.find('caption')
         if caption and 'Player Stats' in caption.get_text():
             caption_text = caption.get_text().strip()
-            print(f"   [HTML] Found player stats table: {caption_text}")
             player_stats_tables.append((table, caption_text))
     
     if not player_stats_tables:
         print(f"   [HTML ERROR] Could not find player stats tables")
         return None
     
-    # Step 5: Match tables to teams and parse both
+    # Match tables to teams and parse both
     # Tables have captions like "GRE - Player Stats" or "BLA - Player Stats"
     # We need to match the abbreviation to the team name
-    print(f"   [HTML] Matching tables to teams...")
-    
-    # Try to find team abbreviations from the HTML
-    # Look for team abbreviations in scoring summary or other tables
     team_abbrevs = {}
     
     # Check scoring summary table for team abbreviations
@@ -266,52 +243,41 @@ def parse_html_box_score(box_score_url, fixture_home_team=None, fixture_away_tea
         abbrev_match = re.search(r'^([A-Z]+)\s*-\s*Player Stats', caption_text)
         if abbrev_match:
             abbrev = abbrev_match.group(1)
-            print(f"   [HTML] Found table with abbreviation: {abbrev}")
             
             # Try to match to team names
             # Check if abbreviation matches team name start
             if away_team and (abbrev in away_team.upper()[:4] or away_team.upper()[:3] == abbrev[:3]):
                 away_table = (table, away_team)
-                print(f"   [HTML] Matched {abbrev} to away team: {away_team}")
             elif home_team and (abbrev in home_team.upper()[:4] or home_team.upper()[:3] == abbrev[:3]):
                 home_table = (table, home_team)
-                print(f"   [HTML] Matched {abbrev} to home team: {home_team}")
     
     # Fallback: If we couldn't match, use order (first = away, second = home)
     if not away_table and len(player_stats_tables) >= 1:
         away_table = (player_stats_tables[0][0], away_team)
-        print(f"   [HTML] Using fallback: First table = away team")
     if not home_table and len(player_stats_tables) >= 2:
         home_table = (player_stats_tables[1][0], home_team)
-        print(f"   [HTML] Using fallback: Second table = home team")
     
     # Parse away team table
     if away_table:
-        print(f"   [HTML] Parsing away team player stats table...")
         away_players = parse_player_stats_table(away_table[0], away_table[1])
         stats['away_players'] = away_players
-        print(f"   [HTML] Parsed {len(away_players)} away team players")
     else:
         print(f"   [HTML WARNING] Could not find away team table")
     
     # Parse home team table
     if home_table:
-        print(f"   [HTML] Parsing home team player stats table...")
         home_players = parse_player_stats_table(home_table[0], home_table[1])
         stats['home_players'] = home_players
-        print(f"   [HTML] Parsed {len(home_players)} home team players")
     else:
         print(f"   [HTML WARNING] Could not find home team table")
     
-    # Step 6: Find and parse goalkeeper stats tables
-    print(f"   [HTML] Finding goalkeeper stats tables...")
+    # Find and parse goalkeeper stats tables
     gk_stats_tables = []
     for table in all_tables:
         caption = table.find('caption')
         if caption:
             caption_text = caption.get_text().strip()
             if 'Goalie Statistics' in caption_text or 'Goalkeeper Statistics' in caption_text:
-                print(f"   [HTML] Found goalkeeper stats table: {caption_text}")
                 gk_stats_tables.append((table, caption_text))
     
     # Match goalkeeper tables to teams and parse
@@ -324,10 +290,8 @@ def parse_html_box_score(box_score_url, fixture_home_team=None, fixture_away_tea
             # Try to match by team name in caption
             if away_team and away_team in caption_text:
                 team_for_table = away_team
-                print(f"   [HTML] Matched GK table to away team: {away_team}")
             elif home_team and home_team in caption_text:
                 team_for_table = home_team
-                print(f"   [HTML] Matched GK table to home team: {home_team}")
             
             if team_for_table:
                 # Parse goalkeeper stats
@@ -336,62 +300,30 @@ def parse_html_box_score(box_score_url, fixture_home_team=None, fixture_away_tea
                 # Update player records with goalkeeper stats
                 if team_for_table == away_team:
                     update_players_with_gk_stats(stats['away_players'], gk_stats)
-                    print(f"   [HTML] Updated {len(gk_stats)} away team goalkeepers")
                 elif team_for_table == home_team:
                     update_players_with_gk_stats(stats['home_players'], gk_stats)
-                    print(f"   [HTML] Updated {len(gk_stats)} home team goalkeepers")
     
-    # Step 7: Find and parse cards (Cautions and Ejections table)
-    print(f"   [HTML] Finding cards table...")
+    # Find and parse cards (Cautions and Ejections table)
     cards_table = None
     for table in all_tables:
         caption = table.find('caption')
         if caption:
             caption_text = caption.get_text().strip()
             if 'Cautions and Ejections' in caption_text or 'Cautions' in caption_text:
-                print(f"   [HTML] Found cards table: {caption_text}")
                 cards_table = table
                 break
     
     if cards_table:
         # Parse cards and update player records
         cards_data = parse_cards_table(cards_table, away_team, home_team)
-        print(f"   [HTML] Found {len(cards_data)} card entries")
         
         # Update player records with cards
         update_players_with_cards(stats['away_players'], cards_data, away_team)
         update_players_with_cards(stats['home_players'], cards_data, home_team)
-        
-        # Count cards by type for logging
-        yellow_count = sum(1 for c in cards_data if c['type'] == 'yellow')
-        red_count = sum(1 for c in cards_data if c['type'] == 'red')
-        print(f"   [HTML] Updated cards: {yellow_count} yellow, {red_count} red")
-    else:
-        print(f"   [HTML WARNING] Could not find cards table")
     
-    # Step 8: Calculate clean sheets (same logic as PDF parser)
-    print(f"   [HTML] Calculating clean sheets...")
-    home_gks = [p for p in stats['home_players'] if p['pos'] == 'GK']
-    away_gks = [p for p in stats['away_players'] if p['pos'] == 'GK']
-    
-    # Total goals conceded by each team
-    home_goals_conceded = sum(gk.get('goals_against', 0) for gk in home_gks)
-    away_goals_conceded = sum(gk.get('goals_against', 0) for gk in away_gks)
-    
-    # Assign clean sheets to GKs and Defenders (must play at least 60 minutes)
-    for player in stats['home_players']:
-        if player['pos'] in ['GK', 'DEF'] and player['minutes'] >= 60:
-            player['clean_sheet'] = 1 if home_goals_conceded == 0 else 0
-        else:
-            player['clean_sheet'] = 0
-    
-    for player in stats['away_players']:
-        if player['pos'] in ['GK', 'DEF'] and player['minutes'] >= 60:
-            player['clean_sheet'] = 1 if away_goals_conceded == 0 else 0
-        else:
-            player['clean_sheet'] = 0
-    
-    print(f"   [HTML] Clean sheets: Home={1 if home_goals_conceded == 0 else 0}, Away={1 if away_goals_conceded == 0 else 0}")
+    # Note: Clean sheets will be calculated AFTER PDF minutes are merged (if PDF available)
+    # For HTML-only, clean sheets will be calculated with special handling for 0 minutes
+    # This is done in parse_player_stats_hybrid() after minutes are merged
     
     return stats
 
@@ -746,6 +678,72 @@ def update_players_with_cards(players, cards_data, team_name):
             player['yellow_cards'] = card_counts[jersey]['yellow']
             player['red_cards'] = card_counts[jersey]['red']
 
+def calculate_clean_sheets(stats, html_only_mode=False):
+    """
+    Calculate clean sheets for GKs and Defenders.
+    
+    Args:
+        stats: Stats dict with home_players and away_players
+        html_only_mode: If True, award clean sheets to DEF/GK even if minutes are 0
+                       (since we don't have minutes data for HTML-only parsing)
+    
+    Returns:
+        None (modifies stats in-place)
+    """
+    home_gks = [p for p in stats['home_players'] if p['pos'] == 'GK']
+    away_gks = [p for p in stats['away_players'] if p['pos'] == 'GK']
+    
+    # Total goals conceded by each team
+    home_goals_conceded = sum(gk.get('goals_against', 0) for gk in home_gks)
+    away_goals_conceded = sum(gk.get('goals_against', 0) for gk in away_gks)
+    
+    # Check if we have GK data (if no GKs found, we can't determine clean sheets reliably)
+    # Goals_against might be 0 (valid value), so check if the key exists in the dict
+    has_home_gk_data = len(home_gks) > 0 and any('goals_against' in gk for gk in home_gks)
+    has_away_gk_data = len(away_gks) > 0 and any('goals_against' in gk for gk in away_gks)
+    
+    # Assign clean sheets to GKs and Defenders
+    for player in stats['home_players']:
+        if player['pos'] in ['GK', 'DEF']:
+            # Check if team got clean sheet
+            team_clean_sheet = has_home_gk_data and home_goals_conceded == 0
+            
+            if html_only_mode:
+                # HTML-only mode: Award clean sheet to DEF/GK if team got clean sheet
+                # (Even if minutes are 0, player is in stats table so they played)
+                if team_clean_sheet:
+                    player['clean_sheet'] = 1
+                else:
+                    player['clean_sheet'] = 0
+            else:
+                # Normal mode: Require 60+ minutes for clean sheet
+                if player['minutes'] >= 60 and team_clean_sheet:
+                    player['clean_sheet'] = 1
+                else:
+                    player['clean_sheet'] = 0
+        else:
+            player['clean_sheet'] = 0
+    
+    for player in stats['away_players']:
+        if player['pos'] in ['GK', 'DEF']:
+            # Check if team got clean sheet
+            team_clean_sheet = has_away_gk_data and away_goals_conceded == 0
+            
+            if html_only_mode:
+                # HTML-only mode: Award clean sheet to DEF/GK if team got clean sheet
+                if team_clean_sheet:
+                    player['clean_sheet'] = 1
+                else:
+                    player['clean_sheet'] = 0
+            else:
+                # Normal mode: Require 60+ minutes for clean sheet
+                if player['minutes'] >= 60 and team_clean_sheet:
+                    player['clean_sheet'] = 1
+                else:
+                    player['clean_sheet'] = 0
+        else:
+            player['clean_sheet'] = 0
+
 def parse_player_stats_hybrid(box_score_url, pdf_path=None, fixture_home_team=None, fixture_away_team=None):
     """
     Parse player stats using HTML as primary source, PDF for minutes only.
@@ -764,9 +762,7 @@ def parse_player_stats_hybrid(box_score_url, pdf_path=None, fixture_home_team=No
     Returns:
         stats dict with complete player data (same format as parse_pdf_stats)
     """
-    print(f"   [HYBRID] Starting hybrid parsing (HTML + PDF minutes)...")
-    
-    # Step 1: Parse HTML to get all player data
+    # Parse HTML to get all player data
     # HTML has: team names, player names, jersey, position, goals, assists, shots, SOG, cards
     # HTML is missing: minutes for field players (only has minutes for GKs)
     html_stats = parse_html_box_score(box_score_url, fixture_home_team, fixture_away_team)
@@ -775,21 +771,24 @@ def parse_player_stats_hybrid(box_score_url, pdf_path=None, fixture_home_team=No
         print(f"   [HYBRID ERROR] HTML parsing failed")
         return None
     
-    print(f"   [HYBRID] HTML parsing successful: {len(html_stats['home_players'])} home + {len(html_stats['away_players'])} away players")
-    
-    # Step 2: If PDF exists, extract minutes for field players
+    # If PDF exists, extract minutes for field players
+    pdf_available = False
     if pdf_path and os.path.exists(pdf_path):
-        print(f"   [HYBRID] PDF found, extracting minutes for field players...")
         # Extract minutes from PDF
         pdf_minutes = extract_minutes_from_pdf(pdf_path, html_stats, fixture_home_team, fixture_away_team)
         
         # Merge minutes into HTML stats
         if pdf_minutes:
             merge_minutes_into_stats(html_stats, pdf_minutes)
+            pdf_available = True
         else:
             print(f"   [HYBRID WARNING] PDF minutes extraction failed, using HTML-only data")
-    else:
-        print(f"   [HYBRID] No PDF available, using HTML-only data (field players will have 0 minutes)")
+    
+    # Step 3: Calculate clean sheets AFTER minutes are merged
+    # For HTML-only mode, award clean sheets to DEF/GK even if minutes are 0
+    # (since we don't have minutes data but player is in the stats table)
+    html_only_mode = not pdf_available
+    calculate_clean_sheets(html_stats, html_only_mode=html_only_mode)
     
     return html_stats
 
@@ -810,8 +809,6 @@ def extract_minutes_from_pdf(pdf_path, html_stats, fixture_home_team=None, fixtu
         dict: {team_name: {jersey: minutes, ...}, ...}
         Example: {'MUW': {10: 90, 11: 45, ...}, 'Principia': {5: 90, ...}}
     """
-    print(f"   [EXTRACT MINUTES] Extracting minutes from PDF...")
-    
     # Use fixture data as source of truth for team names
     home_team = fixture_home_team if fixture_home_team else html_stats.get('home_team')
     away_team = fixture_away_team if fixture_away_team else html_stats.get('away_team')
@@ -929,15 +926,9 @@ def extract_minutes_from_pdf(pdf_path, html_stats, fixture_home_team=None, fixtu
                             # Store minutes for this team and jersey
                             if team_for_player and team_for_player in pdf_minutes:
                                 pdf_minutes[team_for_player][jersey_num] = mins
-                                print(f"   [EXTRACT MINUTES] Found {team_for_player} #{jersey_num}: {mins} min")
                         
                         except (ValueError, IndexError) as e:
                             continue
-            
-            # Summary
-            home_count = len(pdf_minutes[home_team])
-            away_count = len(pdf_minutes[away_team])
-            print(f"   [EXTRACT MINUTES] Extracted minutes: {home_team} ({home_count} players), {away_team} ({away_count} players)")
             
     except Exception as e:
         print(f"   [EXTRACT MINUTES ERROR] Error parsing PDF: {e}")
@@ -961,10 +952,7 @@ def merge_minutes_into_stats(html_stats, pdf_minutes):
     Returns:
         None (modifies html_stats in-place)
     """
-    print(f"   [MERGE MINUTES] Merging PDF minutes into HTML stats...")
-    
     if not pdf_minutes:
-        print(f"   [MERGE MINUTES] No PDF minutes to merge")
         return
     
     # Process both home and away players
@@ -973,10 +961,8 @@ def merge_minutes_into_stats(html_stats, pdf_minutes):
         team_minutes = pdf_minutes.get(team_name, {})
         
         if not team_minutes:
-            print(f"   [MERGE MINUTES] No minutes found for {team_name}")
             continue
         
-        updated_count = 0
         for player in html_stats[team_type]:
             jersey = player['jersey']
             
@@ -987,21 +973,8 @@ def merge_minutes_into_stats(html_stats, pdf_minutes):
             
             # Update minutes if found in PDF
             if jersey in team_minutes:
-                old_minutes = player['minutes']
                 new_minutes = team_minutes[jersey]
                 player['minutes'] = new_minutes
-                updated_count += 1
-                if old_minutes != new_minutes:
-                    print(f"   [MERGE MINUTES] Updated {team_name} #{jersey} ({player['name']}): {old_minutes} -> {new_minutes} min")
-        
-        print(f"   [MERGE MINUTES] Updated {updated_count} {team_name} field players with PDF minutes")
-    
-    # Summary
-    total_updated = sum(
-        len([p for p in html_stats[team_type] if p['pos'] != 'GK' and p['minutes'] > 0])
-        for team_type in ['home_players', 'away_players']
-    )
-    print(f"   [MERGE MINUTES] Complete! Total field players with minutes: {total_updated}")
 
 def parse_pdf_stats(pdf_path, fixture_home_team=None, fixture_away_team=None):
     """
@@ -1022,8 +995,6 @@ def parse_pdf_stats(pdf_path, fixture_home_team=None, fixture_away_team=None):
         'away_gk': {...}
     }
     """
-    print(f"   Parsing PDF...")
-    
     # Use fixture data as source of truth for team names
     stats = {
         'home_team': fixture_home_team,  # Use fixture data, not PDF
@@ -1068,8 +1039,6 @@ def parse_pdf_stats(pdf_path, fixture_home_team=None, fixture_away_team=None):
                         elif card_type == 'RED':
                             card_tracker[jersey_num]['red'] += 1
                     
-                    print(f"   [INFO] Found {len(card_entries)} card(s)")
-            
             # Extract team names from PDF header for logging/warning (but don't use them)
             # Format: "Principia (3-3-1, 1-0-0) -vs- The W (3-6-0, 0-1-0)"
             header = lines[0]
@@ -1079,7 +1048,6 @@ def parse_pdf_stats(pdf_path, fixture_home_team=None, fixture_away_team=None):
             if match:
                 pdf_home_team = match.group(1).strip()
                 pdf_away_team = match.group(2).strip()
-                print(f"   [PDF] PDF header shows: {pdf_home_team} vs {pdf_away_team}")
             
             # Use fixture data as source of truth (PDF may have wrong names like "The W")
             if fixture_home_team:
@@ -1101,8 +1069,6 @@ def parse_pdf_stats(pdf_path, fixture_home_team=None, fixture_away_team=None):
             if not stats['home_team'] or not stats['away_team']:
                 print(f"   [ERROR] Could not determine teams (PDF: {pdf_home_team}/{pdf_away_team}, Fixture: {fixture_home_team}/{fixture_away_team})")
                 return None
-            
-            print(f"   [OK] Using teams: {stats['home_team']} vs {stats['away_team']}")
             
             # Find player stats sections
             # Looking for lines like: "Pos # Player SH SOG G A MIN"
@@ -1305,31 +1271,9 @@ def parse_pdf_stats(pdf_path, fixture_home_team=None, fixture_away_team=None):
                         except (ValueError, IndexError) as e:
                             continue
             
-            print(f"   [OK] Parsed {len(stats['home_players'])} home players, {len(stats['away_players'])} away players")
-            
-            # Calculate clean sheets for GKs and Defenders
-            # Clean sheet = team conceded 0 goals
-            home_gks = [p for p in stats['home_players'] if p['pos'] == 'GK']
-            away_gks = [p for p in stats['away_players'] if p['pos'] == 'GK']
-            
-            # Total goals conceded by each team
-            home_goals_conceded = sum(gk.get('goals_against', 0) for gk in home_gks)
-            away_goals_conceded = sum(gk.get('goals_against', 0) for gk in away_gks)
-            
-            # Assign clean sheets to GKs and Defenders
-            for player in stats['home_players']:
-                if player['pos'] in ['GK', 'DEF'] and player['minutes'] >= 60:
-                    player['clean_sheet'] = 1 if home_goals_conceded == 0 else 0
-                else:
-                    player['clean_sheet'] = 0
-            
-            for player in stats['away_players']:
-                if player['pos'] in ['GK', 'DEF'] and player['minutes'] >= 60:
-                    player['clean_sheet'] = 1 if away_goals_conceded == 0 else 0
-                else:
-                    player['clean_sheet'] = 0
-            
-            print(f"   [OK] Clean sheets: Home={1 if home_goals_conceded == 0 else 0}, Away={1 if away_goals_conceded == 0 else 0}")
+            # Calculate clean sheets for GKs and Defenders (using shared function)
+            # PDF parser always has minutes data, so html_only_mode=False
+            calculate_clean_sheets(stats, html_only_mode=False)
             
     except Exception as e:
         print(f"   [ERROR] Error parsing PDF: {e}")
@@ -1408,6 +1352,8 @@ def generate_sql(fixture_data):
         goals_conceded_raw = player.get('goals_against', 0)
         yellow_cards_raw = player.get('yellow_cards', 0)
         red_cards_raw = player.get('red_cards', 0)
+        shots_raw = player.get('shots', 0)
+        sog_raw = player.get('sog', 0)  # Shots on goal
         
         # Diagnostic: Log warnings for values exceeding TINYINT max (255)
         # This helps identify which field is causing arithmetic overflow
@@ -1426,6 +1372,10 @@ def generate_sql(fixture_data):
             print(f"   [OVERFLOW WARNING] {player['name']} ({team}) - YellowCards={yellow_cards_raw} (exceeds TINYINT max 255)")
         if red_cards_raw > 255:
             print(f"   [OVERFLOW WARNING] {player['name']} ({team}) - RedCards={red_cards_raw} (exceeds TINYINT max 255)")
+        if shots_raw > 255:
+            print(f"   [OVERFLOW WARNING] {player['name']} ({team}) - Shots={shots_raw} (exceeds TINYINT max 255)")
+        if sog_raw > 255:
+            print(f"   [OVERFLOW WARNING] {player['name']} ({team}) - ShotsOnGoal={sog_raw} (exceeds TINYINT max 255)")
         
         # Cap values at 255 to prevent arithmetic overflow (TINYINT max value)
         minutes = min(minutes_raw, 255) 
@@ -1435,10 +1385,16 @@ def generate_sql(fixture_data):
         goals_conceded = min(goals_conceded_raw, 255)
         yellow_cards = min(yellow_cards_raw, 255)
         red_cards = min(red_cards_raw, 255)
+        shots = min(shots_raw, 255)
+        sog = min(sog_raw, 255)
         clean_sheet = 1 if player.get('clean_sheet', 0) else 0
         
-        # Skip players with 0 minutes (not used)
-        if minutes == 0:
+        # Skip players with 0 minutes UNLESS they have meaningful stats
+        # For HTML-only parsing, defenders/GKs may have 0 minutes but have clean sheets
+        # Also include players with goals, assists, cards, saves, or shots even with 0 minutes
+        has_meaningful_stats = (clean_sheet == 1 or goals > 0 or assists > 0 or 
+                               yellow_cards > 0 or red_cards > 0 or saves > 0 or shots > 0 or sog > 0)
+        if minutes == 0 and not has_meaningful_stats:
             continue
         
         sql.append(f"""-- {name} ({player['pos']}) - {team}
@@ -1470,14 +1426,16 @@ BEGIN
             CleanSheet = {clean_sheet},
             GoalsConceded = {goals_conceded},
             OwnGoals = 0,  -- TODO: Parse from PDF
-            Saves = {saves}
+            Saves = {saves},
+            Shots = {shots},
+            ShotsOnGoal = {sog}
         WHERE PlayerId = @PlayerId AND FixtureId = @FixtureId;
         PRINT '[OK] Updated stats for {name}';
     END
     ELSE
     BEGIN
-        INSERT INTO playerFixtureStats (PlayerId, FixtureId, MinutesPlayed, Goals, Assists, YellowCards, RedCards, CleanSheet, GoalsConceded, OwnGoals, Saves)
-        VALUES (@PlayerId, @FixtureId, {minutes}, {goals}, {assists}, {yellow_cards}, {red_cards}, {clean_sheet}, {goals_conceded}, 0, {saves});
+        INSERT INTO playerFixtureStats (PlayerId, FixtureId, MinutesPlayed, Goals, Assists, YellowCards, RedCards, CleanSheet, GoalsConceded, OwnGoals, Saves, Shots, ShotsOnGoal)
+        VALUES (@PlayerId, @FixtureId, {minutes}, {goals}, {assists}, {yellow_cards}, {red_cards}, {clean_sheet}, {goals_conceded}, 0, {saves}, {shots}, {sog});
         PRINT '[OK] Inserted stats for {name}';
     END
 END
@@ -1558,28 +1516,22 @@ def process_all_fixtures_from_json(retry_failed=False):
             print(f"\n[{successful+failed+1}/{len(fixtures_to_process)}] Fixture #{fixture_id}: {fixture['home']} vs {fixture['away']}")
             
             # Use hybrid approach: HTML as primary source, PDF for minutes only
-            print(f"   [INFO] Using hybrid approach (HTML + PDF minutes)...")
-            
-            # Step 1: Try to get PDF URL (for minutes extraction)
+            # Try to get PDF URL (for minutes extraction)
             pdf_url = get_pdf_url_from_boxscore(box_score_url)
             pdf_path = None
             method_used = 'hybrid_html_only'  # Default: HTML only
             
             if pdf_url:
                 # PDF found - download it for minutes extraction
-                print(f"   [INFO] PDF found, will extract minutes from PDF")
                 pdf_dir = os.path.join(output_dir, 'pdfs')
                 os.makedirs(pdf_dir, exist_ok=True)
                 pdf_path = os.path.join(pdf_dir, f'fixture_{fixture_id}.pdf')
                 
                 if download_pdf(pdf_url, pdf_path):
                     method_used = 'hybrid_html_pdf'  # HTML + PDF minutes
-                    print(f"   [INFO] PDF downloaded, will merge minutes into HTML stats")
                 else:
                     print(f"   [WARNING] PDF download failed, using HTML-only (field players will have 0 minutes)")
                     pdf_path = None  # PDF download failed, continue with HTML only
-            else:
-                print(f"   [INFO] No PDF available, using HTML-only (field players will have 0 minutes)")
             
             # Step 2: Use hybrid approach (always parses HTML, merges PDF minutes if available)
             stats = parse_player_stats_hybrid(

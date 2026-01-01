@@ -43,7 +43,7 @@ CREATE TABLE [dbo].[usersXleagues]
 	[userId] INT  NOT NULL, 
     [leagueId] INT NOT NULL, 
     CONSTRAINT [FK_usersXleagues_Tousers] FOREIGN KEY ([userid]) REFERENCES [users]([id]) ,
-    CONSTRAINT [FK_usersXleagues_Toleagues] FOREIGN KEY ([leagueId]) REFERENCES [leagues]([id]), 
+    CONSTRAINT [FK_usersXleagues_Toleagues] FOREIGN KEY ([leagueId]) REFERENCES [leagues]([id]) ON DELETE CASCADE, 
     --set primary key as combination of userId and leagueId to prevent duplicates
     CONSTRAINT [PK_usersXleagues] PRIMARY KEY ([userId], [leagueId]),
 )
@@ -153,6 +153,8 @@ CREATE TABLE playerFixtureStats (
     GoalsConceded TINYINT NOT NULL DEFAULT 0,
     OwnGoals TINYINT NOT NULL DEFAULT 0,
     Saves TINYINT NOT NULL DEFAULT 0,
+    Shots TINYINT NOT NULL DEFAULT 0,
+    ShotsOnGoal TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (PlayerId, FixtureId),
     CONSTRAINT FK_PFS_Player FOREIGN KEY (PlayerId) REFERENCES Players(Id),
     CONSTRAINT FK_PFS_Fixture FOREIGN KEY (FixtureId) REFERENCES Fixtures(Id)
@@ -175,6 +177,8 @@ CREATE TABLE playerGameweekStats (
     RedCards TINYINT DEFAULT 0,
     OwnGoals TINYINT DEFAULT 0,
     Saves TINYINT DEFAULT 0,
+    Shots TINYINT DEFAULT 0,
+    ShotsOnGoal TINYINT DEFAULT 0,
 
     PointsEarned INT NOT NULL DEFAULT 0,
 
