@@ -15,7 +15,7 @@ services:
       - sliac-network
 
   db-init:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/mssql-tools:latest
     container_name: sliac_db_init
     environment:
       - SA_PASSWORD=${SA_PASSWORD:-YourStrong@Password123!}
@@ -24,7 +24,7 @@ services:
       - ./docker-init:/docker-init:ro
     networks:
       - sliac-network
-    entrypoint: ["/bin/sh", "-c", "bash /docker-init/init-database.sh"]
+    entrypoint: ["/bin/bash", "/docker-init/init-database.sh"]
     depends_on:
       sqlserver:
         condition: service_started
