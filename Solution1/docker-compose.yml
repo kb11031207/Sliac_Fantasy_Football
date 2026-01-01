@@ -24,7 +24,7 @@ services:
       - ./docker-init:/docker-init:ro
     networks:
       - sliac-network
-    entrypoint: ["/bin/bash", "/docker-init/init-database.sh"]
+    entrypoint: ["/bin/sh", "-c", "bash /docker-init/init-database.sh"]
     depends_on:
       sqlserver:
         condition: service_started
