@@ -21,14 +21,17 @@ done
 echo "Creating database 'fantasy_proj'..."
 /opt/mssql-tools/bin/sqlcmd -S "$SQL_SERVER_HOST" -U sa -P "$SA_PASSWORD" -Q "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'fantasy_proj') CREATE DATABASE fantasy_proj"
 
-# Check if database is already initialized (check if users table exists)
+# Check if database is already initialized (check if last table exists - if it does, all previous ones should too)
 echo "Checking if database is already initialized..."
-if /opt/mssql-tools/bin/sqlcmd -S "$SQL_SERVER_HOST" -U sa -P "$SA_PASSWORD" -d fantasy_proj -Q "SELECT TOP 1 1 FROM sys.tables WHERE name = 'users' AND schema_id = SCHEMA_ID('dbo')" -b -h -1 >/dev/null 2>&1; then
-    echo "✓ Database already initialized (users table exists). Skipping schema creation."
+# Check for the last table created (userGameweekScores) and players table
+# If both exist, initialization is complete
+if /opt/mssql-tools/bin/sqlcmd -S "$SQL_SERVER_HOST" -U sa -P "$SA_PASSWORD" -d fantasy_proj -Q "SELECT TOP 1 1 FROM sys.tables WHERE name = 'userGameweekScores' AND schema_id = SCHEMA_ID('dbo')" -b -h -1 >/dev/null 2>&1 && \
+   /opt/mssql-tools/bin/sqlcmd -S "$SQL_SERVER_HOST" -U sa -P "$SA_PASSWORD" -d fantasy_proj -Q "SELECT TOP 1 1 FROM sys.tables WHERE name = 'players' AND schema_id = SCHEMA_ID('dbo')" -b -h -1 >/dev/null 2>&1; then
+    echo "✓ Database already initialized (all key tables exist). Skipping schema creation."
     echo "  To reinitialize: drop the database or remove the volume (docker-compose down -v)"
     exit 0
 fi
-echo "Database not initialized. Proceeding with schema creation..."
+echo "Database not fully initialized. Proceeding with schema creation..."
 
 # Run schema scripts in dependency order
 echo "Running schema creation scripts..."
