@@ -82,5 +82,4 @@ echo "✓ Created userGameweekScores table"
 
 echo ""
 echo "Database initialization complete!"
-echo "Database 'fantasy_proj' is ready to use."
-
+echo "Database 'fantasy_proj' is ready to use. "
