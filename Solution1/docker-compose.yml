@@ -13,12 +13,6 @@ services:
       - ./docker-init:/docker-init:ro
     networks:
       - sliac-network
-    healthcheck:
-      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "YourStrong@Password123!" -Q "SELECT 1" -b || exit 1
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 90s
 
   db-init:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -33,7 +27,7 @@ services:
     entrypoint: ["/bin/bash", "/docker-init/init-database.sh"]
     depends_on:
       sqlserver:
-        condition: service_healthy
+        condition: service_started
     restart: "no"
 
   api:
@@ -53,7 +47,7 @@ services:
       - JwtSettings__Audience=SliacFantasyClient
     depends_on:
       sqlserver:
-        condition: service_healthy
+        condition: service_started
       db-init:
         condition: service_completed_successfully
     networks:
