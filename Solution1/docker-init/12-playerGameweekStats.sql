@@ -23,3 +23,6 @@ CREATE TABLE playerGameweekStats (
     CONSTRAINT FK_Stats_Fixture FOREIGN KEY (FixtureId) REFERENCES Fixtures(Id)
 );
 
+
+
+

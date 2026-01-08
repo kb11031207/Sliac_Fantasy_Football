@@ -4,3 +4,6 @@ CREATE TABLE [dbo].[__EFMigrationsHistory] (
     CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY CLUSTERED ([MigrationId] ASC)
 );
 
+
+
+

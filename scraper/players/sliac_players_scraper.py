@@ -114,12 +114,49 @@ def scrape_generic_roster(url, base_url):
             else:
                 continue  # Skip if no name found
             
-            # Extract position (use the short form)
+            # Extract position - try multiple methods
+            position = None
+            position_text = None
+            
+            # Method 1: Try the standard position element (for some teams)
             position_elem = item.find('span', class_='sidearm-roster-player-position-long-short')
             if position_elem:
                 position_text = position_elem.text.strip().upper()
-                
+            
+            # Method 2: Try div.sidearm-roster-player-position (for Greenville, Spalding, Westminster)
+            if not position_text:
+                position_div = item.find('div', class_='sidearm-roster-player-position')
+                if position_div:
+                    # The position is usually in a span.text-bold inside the div
+                    # But the div text might also contain height/weight, so get first text node
+                    bold_span = position_div.find('span', class_='text-bold')
+                    if bold_span:
+                        position_text = bold_span.text.strip().upper()
+                    else:
+                        # Fallback: get all text and take first word (before height/weight)
+                        all_text = position_div.get_text(strip=True)
+                        # Position is usually first, followed by height like "GK6'2"185 lbs"
+                        # Extract just the position letters (GK, D, M, F, etc.)
+                        match = re.match(r'^([A-Z]+(?:\s*/\s*[A-Z]+)?)', all_text)
+                        if match:
+                            position_text = match.group(1).strip().upper()
+            
+            # Method 3: Try span.sidearm-roster-player-position as fallback
+            if not position_text:
+                position_span = item.find('span', class_='sidearm-roster-player-position')
+                if position_span:
+                    position_text = position_span.text.strip().upper()
+            
+            # Parse the position text
+            if position_text:
                 # Handle dual positions (D/M, M/D, M/F) - use the primary (first) position
+                if '/' in position_text:
+                    position_text = position_text.split('/')[0].strip()
+                
+                # Clean up: remove any trailing numbers or special chars that might have been included
+                # But preserve letters and common position abbreviations
+                position_text = re.sub(r'[^A-Z/]', '', position_text)
+                # If there's still a slash, take the first part
                 if '/' in position_text:
                     position_text = position_text.split('/')[0].strip()
                 
@@ -139,9 +176,11 @@ def scrape_generic_roster(url, base_url):
                 else:
                     # Default to midfielder for unknown positions
                     position = 'M'
-                    print(f"   Warning: Unknown position '{position_text}' for a player, defaulting to Midfielder")
+                    print(f"   Warning: Unknown position '{position_text}' for {name}, defaulting to Midfielder")
             else:
-                position = 'M'  # Default
+                # No position found - default to midfielder but warn
+                position = 'M'
+                print(f"   Warning: Could not find position element for {name}, defaulting to Midfielder")
             
             # Extract picture URL
             picture_url = None

@@ -9,3 +9,6 @@ CREATE TABLE userGameweekScores (
     CONSTRAINT UQ_UGS UNIQUE (UserId, GameweekId)
 );
 
+
+
+

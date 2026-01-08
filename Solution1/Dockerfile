@@ -28,3 +28,6 @@ COPY --from=publish /app/publish .
 
 ENTRYPOINT ["dotnet", "Api_Srv.dll"]
 
+
+
+

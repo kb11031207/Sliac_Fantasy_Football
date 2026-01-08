@@ -19,3 +19,6 @@ CREATE TABLE playerFixtureStats (
     CONSTRAINT FK_PFS_Fixture FOREIGN KEY (FixtureId) REFERENCES Fixtures(Id)
 );
 
+
+
+
