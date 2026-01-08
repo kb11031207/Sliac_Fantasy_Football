@@ -20,7 +20,13 @@ done
 # Create database if it doesn't exist
 echo "Creating database 'fantasy_proj'..."
 /opt/mssql-tools/bin/sqlcmd -S "$SQL_SERVER_HOST" -U sa -P "$SA_PASSWORD" -Q "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'fantasy_proj') CREATE DATABASE fantasy_proj"
-
+# check if database created
+if [ $? -eq 0 ]; then
+    echo "✓ Database created"
+else
+    echo "✗ Failed to create database"
+    exit 1
+fi
 # Check if database is already initialized (check if last table exists - if it does, all previous ones should too)
 echo "Checking if database is already initialized..."
 # Check for the last table created (userGameweekScores) and players table
@@ -29,6 +35,10 @@ echo "Checking if database is already initialized..."
 USERGW_RESULT=$(/opt/mssql-tools/bin/sqlcmd -S "$SQL_SERVER_HOST" -U sa -P "$SA_PASSWORD" -d fantasy_proj -Q "SELECT TOP 1 1 FROM sys.tables WHERE name = 'userGameweekScores' AND schema_id = SCHEMA_ID('dbo')" -h -1 -W 2>/dev/null | tr -d ' ')
 PLAYERS_RESULT=$(/opt/mssql-tools/bin/sqlcmd -S "$SQL_SERVER_HOST" -U sa -P "$SA_PASSWORD" -d fantasy_proj -Q "SELECT TOP 1 1 FROM sys.tables WHERE name = 'players' AND schema_id = SCHEMA_ID('dbo')" -h -1 -W 2>/dev/null | tr -d ' ')
 
+
+# print the results
+echo "USERGW_RESULT: $USERGW_RESULT"
+echo "PLAYERS_RESULT: $PLAYERS_RESULT"
 if [ "$USERGW_RESULT" = "1" ] && [ "$PLAYERS_RESULT" = "1" ]; then
     echo "✓ Database already initialized (all key tables exist). Skipping schema creation."
     echo "  To reinitialize: drop the database or remove the volume (docker-compose down -v)"
