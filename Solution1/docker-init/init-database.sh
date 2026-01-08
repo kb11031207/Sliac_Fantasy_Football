@@ -32,13 +32,14 @@ echo "Checking if database is already initialized..."
 # Check for the last table created (userGameweekScores) and players table
 # If both exist, initialization is complete
 # Use -W to remove trailing spaces and check if we get a result (value "1")
-USERGW_RESULT=$(/opt/mssql-tools/bin/sqlcmd -S "$SQL_SERVER_HOST" -U sa -P "$SA_PASSWORD" -d fantasy_proj -Q "SELECT TOP 1 1 FROM sys.tables WHERE name = 'userGameweekScores' AND schema_id = SCHEMA_ID('dbo')" -h -1 -W 2>/dev/null | tr -d ' ')
-PLAYERS_RESULT=$(/opt/mssql-tools/bin/sqlcmd -S "$SQL_SERVER_HOST" -U sa -P "$SA_PASSWORD" -d fantasy_proj -Q "SELECT TOP 1 1 FROM sys.tables WHERE name = 'players' AND schema_id = SCHEMA_ID('dbo')" -h -1 -W 2>/dev/null | tr -d ' ')
+USERGW_RESULT=$(/opt/mssql-tools/bin/sqlcmd -S "$SQL_SERVER_HOST" -U sa -P "$SA_PASSWORD" -d fantasy_proj -Q "SELECT TOP 1 1 FROM sys.tables WHERE name = 'userGameweekScores' AND schema_id = SCHEMA_ID('dbo')" -h -1 -W 2>/dev/null | tr -d ' \n\r\t')
+PLAYERS_RESULT=$(/opt/mssql-tools/bin/sqlcmd -S "$SQL_SERVER_HOST" -U sa -P "$SA_PASSWORD" -d fantasy_proj -Q "SELECT TOP 1 1 FROM sys.tables WHERE name = 'players' AND schema_id = SCHEMA_ID('dbo')" -h -1 -W 2>/dev/null | tr -d ' \n\r\t')
 
+# print the results (with quotes to see any hidden characters)
+echo "USERGW_RESULT: '$USERGW_RESULT'"
+echo "PLAYERS_RESULT: '$PLAYERS_RESULT'"
 
-# print the results
-echo "USERGW_RESULT: $USERGW_RESULT"
-echo "PLAYERS_RESULT: $PLAYERS_RESULT"
+# Check if both results are exactly "1" (after stripping all whitespace)
 if [ "$USERGW_RESULT" = "1" ] && [ "$PLAYERS_RESULT" = "1" ]; then
     echo "✓ Database already initialized (all key tables exist). Skipping schema creation."
     echo "  To reinitialize: drop the database or remove the volume (docker-compose down -v)"
