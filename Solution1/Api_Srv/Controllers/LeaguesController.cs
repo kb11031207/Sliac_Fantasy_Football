@@ -166,20 +166,29 @@ namespace Api_Srv.Controllers
         }
 
         /// <summary>
-        /// Get league standings for a gameweek (requires authentication - only league members can access)
+        /// Get league standings for a gameweek (requires authentication - public leagues can be viewed by anyone, private leagues require membership)
         /// </summary>
         [Authorize]
         [HttpGet("{leagueId}/standings/gameweek/{gameweekId}")]
         [ProducesResponseType(typeof(LeagueStandingsDto), 200)]
         [ProducesResponseType(403)]
+        [ProducesResponseType(404)]
         public async Task<IActionResult> GetLeagueStandings(int leagueId, int gameweekId)
         {
-            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
-            
-            // Check if user is a member of this league
-            var isMember = await _leagueService.IsUserInLeagueAsync(currentUserId, leagueId);
-            if (!isMember)
-                return Forbid("You must be a member of this league to view standings");
+            // First, get the league to check if it's public or private
+            var league = await _leagueService.GetLeagueByIdAsync(leagueId);
+            if (league == null)
+                return NotFound($"League with ID {leagueId} not found");
+
+            // If the league is private, check if user is a member
+            if (!league.Type) // Type = false means private
+            {
+                var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+                var isMember = await _leagueService.IsUserInLeagueAsync(currentUserId, leagueId);
+                if (!isMember)
+                    return Forbid("You must be a member of this private league to view standings");
+            }
+            // If the league is public (Type = true), any authenticated user can view
 
             var standings = await _leagueService.GetLeagueStandingsAsync(leagueId, gameweekId);
             return Ok(standings);
