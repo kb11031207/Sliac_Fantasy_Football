@@ -29,10 +29,18 @@ namespace Api_Srv.Controllers
         {
             var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
             
-            // Check if user is a member of this league
+            // Check if user is a member of this league 
             var isMember = await _leagueService.IsUserInLeagueAsync(currentUserId, id);
-            if (!isMember)
-                return Forbid("You must be a member of this league to view it");
+
+            if(league.Type == false)
+            {
+              //  var isMember = await _leagueService.IsUserInLeagueAsync(currentUserId, id);
+                if (!isMember)
+                    return Forbid("You must be a member of this league to view it");
+            }
+            
+           // if (!isMember)
+             //   return Forbid("You must be a member of this league to view it");
 
             var league = await _leagueService.GetLeagueByIdAsync(id);
             if (league == null)
@@ -55,7 +63,7 @@ namespace Api_Srv.Controllers
             
             // Check if user is a member of this league
             var isMember = await _leagueService.IsUserInLeagueAsync(currentUserId, id);
-            if (!isMember)
+            if (league.Type == false && !isMember)
                 return Forbid("You must be a member of this league to view details");
 
             var league = await _leagueService.GetLeagueDetailsAsync(id);
@@ -186,7 +194,7 @@ namespace Api_Srv.Controllers
                 var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
                 var isMember = await _leagueService.IsUserInLeagueAsync(currentUserId, leagueId);
                 if (!isMember)
-                    return Forbid("You must be a member of this private league to view standings");
+                    return Forbid("You must be a member of this private league to view standings here ");
             }
             // If the league is public (Type = true), any authenticated user can view
 
