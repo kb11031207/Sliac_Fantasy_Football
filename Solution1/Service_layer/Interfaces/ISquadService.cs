@@ -10,6 +10,7 @@ namespace Service_layer.Interfaces
         Task<SquadDto> UpdateSquadAsync(int squadId, UpdateSquadDto updateDto);
         Task<IEnumerable<SquadDto>> GetUserSquadsAsync(int userId);
         Task<bool> DeleteSquadAsync(int id);
+        Task<CreateSquadDto> GenerateRandomSquadAsync(int gameweekId);
     }
 }
 

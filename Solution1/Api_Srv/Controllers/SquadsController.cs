@@ -59,6 +59,33 @@ namespace Api_Srv.Controllers
         }
 
         /// <summary>
+        /// Generate random squad for testing purposes (requires authentication - user must be generating for themselves)
+        /// Returns a CreateSquadDto that can be used to create or modify a squad
+        /// </summary>
+        [Authorize]
+        [HttpPost("user/{userId}/random/gameweek/{gameweekId}")]
+        [ProducesResponseType(typeof(CreateSquadDto), 200)]
+        [ProducesResponseType(400)]
+        [ProducesResponseType(403)]
+        public async Task<IActionResult> GenerateRandomSquad(int userId, int gameweekId)
+        {
+            // Check if authenticated user is generating for themselves
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            if (currentUserId != userId)
+                return Forbid("You can only generate random squads for your own account");
+
+            try
+            {
+                var randomSquad = await _squadService.GenerateRandomSquadAsync(gameweekId);
+                return Ok(randomSquad);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Create new squad (requires authentication - user must be creating their own squad)
         /// </summary>
         [Authorize]
