@@ -32,19 +32,16 @@ namespace Api_Srv.Controllers
             // Check if user is a member of this league 
             var isMember = await _leagueService.IsUserInLeagueAsync(currentUserId, id);
 
-            if(league.Type == false)
-            {
-              //  var isMember = await _leagueService.IsUserInLeagueAsync(currentUserId, id);
-                if (!isMember)
-                    return Forbid("You must be a member of this league to view it");
-            }
-            
+
            // if (!isMember)
              //   return Forbid("You must be a member of this league to view it");
 
             var league = await _leagueService.GetLeagueByIdAsync(id);
             if (league == null)
                 return NotFound($"League with ID {id} not found");
+            
+            if (league.Type == false && !isMember)
+                return Forbid("You must be a member of this league to view it");
 
             return Ok(league);
         }
@@ -60,13 +57,13 @@ namespace Api_Srv.Controllers
         public async Task<IActionResult> GetLeagueDetails(int id)
         {
             var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
-            
+            var league = await _leagueService.GetLeagueDetailsAsync(id);
+
             // Check if user is a member of this league
             var isMember = await _leagueService.IsUserInLeagueAsync(currentUserId, id);
             if (league.Type == false && !isMember)
                 return Forbid("You must be a member of this league to view details");
 
-            var league = await _leagueService.GetLeagueDetailsAsync(id);
             if (league == null)
                 return NotFound($"League with ID {id} not found");
 
