@@ -1,0 +1,38 @@
+# Ignore all output directories
+**/output/*.json
+**/output/*.sql
+**/output/*.csv
+
+# Keep the output directory structure
+!**/output/.gitkeep
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Debug files
+*_debug.html
+*.log
+
+
+
+
+
+
+
+
+
+
+
+

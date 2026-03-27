@@ -1,0 +1,25 @@
+# Environment Variables Template
+# Copy this to .env file in the Solution1 directory
+# Docker Compose will automatically load .env files
+#
+# IMPORTANT: Never commit .env files to git (they contain sensitive passwords!)
+
+# SQL Server Configuration
+# Change this to a strong password in production!
+SA_PASSWORD=YourStrong@Password123!
+
+# JWT Secret Key
+# Change this to a secure random string in production!
+# Minimum 32 characters recommended for security
+JWT_SECRET=SliacFantasyFootball2025SecureJwtKeyForAuthenticationAndAuthorization!@#MinimumLengthRequired
+
+# Optional: Override SQL Server connection string directly
+# (Usually not needed, as docker-compose.yml constructs it from SA_PASSWORD)
+# ConnectionStrings__DefaultConnection=Server=sqlserver;Database=fantasy_proj;User Id=sa;Password=YourStrong@Password123!;TrustServerCertificate=True;Multiple Active Result Sets=True
+
+# Optional: Override JWT settings individually
+# JwtSettings__Issuer=SliacFantasyAPI
+# JwtSettings__Audience=SliacFantasyClient
+# JwtSettings__AccessTokenExpirationMinutes=30
+# JwtSettings__RefreshTokenExpirationDays=7
+

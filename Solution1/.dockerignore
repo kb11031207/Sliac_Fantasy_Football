@@ -1,0 +1,62 @@
+# Build outputs
+**/bin/
+**/obj/
+**/out/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio files
+.vs/
+.vscode/
+*.csproj.user
+
+# Test projects (not needed in production image)
+**/*.Tests/
+Api_Srv.Tests/
+
+# Documentation files
+*.md
+!README.md
+
+# Database project build outputs
+Database1/bin/
+Database1/obj/
+*.dacpac
+*.publish.sql
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE files
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# HTTP test files
+*.http
+
+# Solution-level files we don't need
+*.sln.docstates
+
+
+
+

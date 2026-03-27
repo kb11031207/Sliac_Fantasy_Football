@@ -14,3 +14,18 @@ wwwroot/lib/
 # OS-specific
 .DS_Store
 Thumbs.db
+
+# Scraper folders (old C# scraper - deprecated)
+SliacScraper/
+Solution1/SliacScraper/
+
+Solution1/MIGRATION_SUMMARY.md
+Solution1/VERIFICATION_REPORT.md
+
+/.whodare
+/output
+/output
+/memory
+/output
+/.cursor
+ARCHITECTURE_SUMMARY.md
